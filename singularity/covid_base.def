@@ -32,7 +32,11 @@ apt-get update && apt-get install -y --no-install-recommends \
         texinfo \
         automake-1.15 \
         ca-certificates \
-        build-essential &&\
+        build-essential \
+        ffmpeg \
+        gnuplot \
+        vim \
+        zip unzip &&\
     rm -rf /var/lib/apt/lists/*
 
 # Python 3 and PyTorch
@@ -67,7 +71,13 @@ cd /code && git clone --branch 0.17.4 https://github.com/QuantStack/xtensor.git 
 cd /code && git clone --branch 0.3.0  https://github.com/QuantStack/xtensor-io.git && cd xtensor-io && cmake . && make install
 cd /code && git clone --branch 0.13.1 https://github.com/QuantStack/xtensor-blas.git && cd xtensor-blas && cmake . && make install
 
+# Sacred
+
+
 ## Other requirements
+pip install --progress-bar off sacred pymongo
+pip install --progress-bar off seaborn
+pip install --progress-bar off h5py scipy ujson
 pip install --progress-bar off scikit-learn
 
 %environment
