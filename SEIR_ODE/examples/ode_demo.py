@@ -33,13 +33,33 @@ else:
 device = torch.device('cuda:' + str(args.gpu) if torch.cuda.is_available() else 'cpu')
 ode.setup_visual(args)
 
-
 def get_diff(_state, _params):
-    _d_s = - (np.exp(_params.log_beta)*_state[:, 0]*_state[:, 2])
-    _d_e = (np.exp(_params.log_beta)*_state[:, 0]*_state[:, 2] - np.exp(_params.log_alpha)*_state[:, 1])
-    _d_i = (np.exp(_params.log_alpha)*_state[:, 1] - np.exp(_params.log_gamma)*_state[:, 2])
-    _d_r = (np.exp(_params.log_gamma)*_state[:, 2])
-    return torch.stack((_d_s, _d_e, _d_i, _d_r)).T
+
+    mu = _params.mu
+    beta = np.exp(_params.log_beta)
+    gamma = np.exp(_params.log_gamma)
+    alpha = np.exp(_params.log_alpha)
+
+    S, E1, E2, I1, I2, I3, R = tuple(_state[:, i] for i in
+                                     range(_state.shape[1]))
+    N = _state.sum(dim=1)
+
+    s_to_e1 = (1 - mu) * beta * S * (I1 + I2 + I3) / N
+    e1_to_e2 = 2*alpha*E1
+    e2_to_i1 = 2*alpha*E2
+    i1_to_i2 = 3*gamma*I1
+    i2_to_i3 = 3*gamma*I2
+    i3_to_r = 3*gamma*I3
+
+    _d_s = -s_to_e1
+    _d_e1 = s_to_e1 - e1_to_e2
+    _d_e2 = e1_to_e2 - e2_to_i1
+    _d_i1 = e2_to_i1 - i1_to_i2 - mu*I1
+    _d_i2 = i1_to_i2 - i2_to_i3 - mu*I2
+    _d_i3 = i2_to_i3 - i3_to_r - mu*I3
+    _d_r = i3_to_r
+
+    return torch.stack((_d_s, _d_e1, _d_e2, _d_i1, _d_i2, _d_i3, _d_r), dim=1)
 
 
 def simulate_seir(_state, _params, _dt, _t, _noise_func):
@@ -61,15 +81,16 @@ if __name__ == '__main__':
     T = 100
     dt = .1
     N = 10000
-    init_vals = torch.tensor([[1 - 1 / N, 1 / N, 0, 0]] * N_sim)
+    init_vals = torch.tensor([[1 - 1 / N, 1 / N, 0, 0, 0, 0, 0]] * N_sim)
     t = torch.linspace(0, T, int(T / dt) + 1)
     dims = 4
 
     infection_threshold = 0.2
 
-    log_alpha = np.log(torch.tensor((0.20, )))
-    log_beta = np.log(torch.tensor((1.75, )))
-    log_gamma = np.log(torch.tensor((0.25, )))
+    mu = 0
+    log_alpha = np.log(torch.tensor((1/5.1, )))
+    log_beta = np.log(torch.tensor((2.6/3.3, )))
+    log_gamma = np.log(torch.tensor((1/3.3, )))
 
     params = SimpleNamespace(**{'log_alpha':    log_alpha,
                                 'log_beta':     log_beta,
@@ -83,6 +104,7 @@ if __name__ == '__main__':
         :return:
         """
         _params = dc(_params)
+        _params.mu = mu
         _params.log_alpha = log_alpha  # torch.tensor(np.log(np.random.rayleigh(np.exp(log_alpha[0]), (N_sim, ))))
         _params.log_beta = torch.tensor(np.log(np.random.rayleigh(np.exp(log_beta[0]), (N_sim, ))))
         _params.log_gamma = torch.tensor(np.log(np.random.rayleigh(np.exp(log_gamma[0]), (N_sim, ))))
