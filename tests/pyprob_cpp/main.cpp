@@ -13,6 +13,7 @@ xt::xarray<double> forward()
   auto mu = pyprob_cpp::sample(prior);
 
   auto likelihood = pyprob_cpp::distributions::Normal(mu, likelihood_stddev);
+  pyprob_cpp::observe(likelihood, "obs");
 
   return mu;
 }
