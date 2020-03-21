@@ -10,6 +10,21 @@ import matplotlib.pyplot as plt
 
 fig, ax_traj, ax_phase, ax_vecfield = None, None, None, None
 
+eps = 0.001
+
+
+# def logit(_x):
+#     _z = ( ( (_x - 0.0) / (1.0 - 0.0) ) * 0.98 ) + 0.01  # (_x * (1.0 - 2*eps)) + eps
+#     _zz = torch.log(_z / (1.0 - _z))
+#     return _zz
+#
+#
+# def sigmoid(_z):
+#     _x = ( ( (_z - 0.01) / (0.99 - 0.01) ) * 1.0 ) + 0.0
+#     _xx = torch.scalar_tensor(1.0) / (1.0 + torch.exp(_x))
+#     return _xx
+
+
 def setup_visual(args):
     if args.viz:
         global fig, ax_traj, ax_phase, ax_vecfield
@@ -26,7 +41,7 @@ def get_batch(args, true_y, t):
     batch_y0 = true_y[s]  # (M, D)
     batch_t = t[:args.batch_time]  # (T)
     batch_y = torch.stack([true_y[s + i] for i in range(args.batch_time)], dim=0)  # (T, M, D)
-    return batch_y0, batch_t, batch_y
+    return torch.log(batch_y0 + eps), batch_t, torch.log(batch_y + eps)
 
 
 def makedirs(dirname):
@@ -39,6 +54,9 @@ def visualize(args, t, true_y, pred_y, odefunc, itr):
     if args.viz:
 
         plt.figure(999)
+
+        true_y = torch.log(true_y + eps)
+        pred_y = torch.log(pred_y + eps)
 
         ax_traj.cla()
         ax_traj.set_title('Trajectories')
@@ -53,7 +71,7 @@ def visualize(args, t, true_y, pred_y, odefunc, itr):
                      t.numpy(), pred_y.numpy()[:, 2], 'y',
                      t.numpy(), pred_y.numpy()[:, 3], 'k')
         ax_traj.set_xlim(t.min(), t.max())
-        ax_traj.set_ylim(-2, 2)
+        ax_traj.set_ylim(-10.1, 1.1)
         ax_traj.legend()
 
         ax_phase.cla()
@@ -93,6 +111,8 @@ class ODEFunc(nn.Module):
 
         self.net = nn.Sequential(
             nn.Linear(_state_dim, 50),
+            nn.ReLU(),
+            nn.Linear(50, 50),
             nn.ReLU(),
             nn.Linear(50, _state_dim),
         )
