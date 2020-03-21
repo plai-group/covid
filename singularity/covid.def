@@ -14,10 +14,10 @@ export LANG=C.UTF-8
 export LC_ALL=C.UTF-8
 
 # pyprob_cpp
-cd /code && git clone --branch master https://github.com/probprog/pyprob_cpp.git && cd pyprob_cpp && mkdir build && cd build && cmake ../src && cmake --build . && make install
+cd /code && git clone --branch master https://github.com/plai-group/pyprob_cpp.git && cd pyprob_cpp && mkdir build && cd build && cmake ../src && cmake --build . && make install
 
 # pyprob
-cd /code && git clone https://github.com/probprog/pyprob.git && cd pyprob && pip install .	
+cd /code && git clone https://github.com/plai-group/pyprob.git && cd pyprob && pip install .	
 
 
 # Sacred
