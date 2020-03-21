@@ -1,0 +1,81 @@
+Bootstrap: docker
+From: ubuntu:18.04
+
+%files
+
+%post
+export CC=gcc-5
+export CXX=g++-5
+export PYTHON_VERSION=2.7
+export PATH=/usr/bin:$PATH
+# env-python
+export PATH=/opt/conda/bin:$PATH
+export LANG=C.UTF-8
+export LC_ALL=C.UTF-8
+
+apt-get update && apt-get install -y --no-install-recommends \
+        nano \
+        git \
+        file \
+        make \
+        cmake \
+        gcc-5 \
+        g++-5 \
+        libzmq3-dev \
+        libsqlite3-dev \
+        wget \
+        curl \
+        tmux \
+        bzip2 \
+        python2.7-dev \
+        libgsl0-dev \
+        texinfo \
+        automake-1.15 \
+        ca-certificates \
+        build-essential &&\
+    rm -rf /var/lib/apt/lists/*
+
+# Python 3 and PyTorch
+wget -O ~/miniconda.sh https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+chmod +x ~/miniconda.sh
+~/miniconda.sh -b -p /opt/conda
+rm ~/miniconda.sh
+
+pip install --upgrade pip
+pip install --progress-bar off numpy 'matplotlib==2.2.3' jupyter scipy tmuxp pypdt pandas
+#conda install pytorch=1.0.0 torchvision=0.2.1 -c pytorch
+conda install pytorch torchvision -c pytorch
+
+apt-get update && apt-get install -y --no-install-recommends \
+            libblas-dev \
+            liblapack-dev \
+            zlib1g-dev \
+            graphviz \
+            python3-gdbm && \
+    rm -rf /var/lib/apt/lists/*
+
+# Enable dbm.gnu
+cp /usr/lib/python3.7/lib-dynload/_gdbm.cpython-37m-x86_64-linux-gnu.so /opt/conda/lib/python3.7/lib-dynload/
+
+pip install --progress-bar off --upgrade cmake==3.13.0
+
+# pyprob_cpp dependencies
+mkdir /code
+cd /code && git clone --branch v1.10.0 https://github.com/google/flatbuffers.git && cd flatbuffers && cmake -G "Unix Makefiles" && make install
+cd /code && git clone --branch 0.4.16 https://github.com/QuantStack/xtl.git && cd xtl && cmake . && make install
+cd /code && git clone --branch 0.17.4 https://github.com/QuantStack/xtensor.git && cd xtensor && cmake . && make install
+cd /code && git clone --branch 0.3.0  https://github.com/QuantStack/xtensor-io.git && cd xtensor-io && cmake . && make install
+cd /code && git clone --branch 0.13.1 https://github.com/QuantStack/xtensor-blas.git && cd xtensor-blas && cmake . && make install
+
+## Other requirements
+pip install --progress-bar off scikit-learn
+
+%environment
+export CC=gcc-5
+export CXX=g++-5
+export PYTHON_VERSION=2.7
+export PATH=/usr/bin:$PATH
+# env-python
+export PATH=/opt/conda/bin:$PATH
+export LANG=C.UTF-8
+export LC_ALL=C.UTF-8
