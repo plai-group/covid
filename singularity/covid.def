@@ -13,23 +13,31 @@ export PATH=/opt/conda/bin:$PATH
 export LANG=C.UTF-8
 export LC_ALL=C.UTF-8
 
+mkdir /repos
+
+# PPX
+cd /repos && git clone https://github.com/plai-group/ppx
+
 # pyprob_cpp
-cd /code && git clone --branch master https://github.com/plai-group/pyprob_cpp.git && cd pyprob_cpp && mkdir build && cd build && cmake ../src && cmake --build . && make install
+cd /repos && git clone --branch master https://github.com/plai-group/pyprob_cpp.git && cd pyprob_cpp && mkdir build && cd build && cmake ../src && cmake --build . && make install
 
 # pyprob
-cd /code && git clone https://github.com/plai-group/pyprob.git && cd pyprob && pip install .	
+cd /repos && git clone https://github.com/plai-group/pyprob.git && cd pyprob && pip install .	
 
-
-# Sacred
-pip install sacred
-pip install pymongo
-
-
-pip install seaborn
-pip install h5py scipy ujson
+# FRED
+cd /repos && git clone https://github.com/plai-group/FRED
+export FRED_HOME=/repos/FRED
+export PATH=${FRED_HOME}/bin:/usr/local/bin:$PATH
+export FRED_GNUPLOT=/usr/local/bin/gnuplot
+cd $FRED_HOME && make
+fred_update # Fetches population files (and some other updates)
 
 
 export LD_LIBRARY_PATH=/usr/local/lib/:$LD_LIBRARY_PATH
 
 %environment
 export LD_LIBRARY_PATH=/usr/local/lib/:$LD_LIBRARY_PATH
+# FRED
+export FRED_HOME=/repos/FRED
+export FRED_GNUPLOT=/usr/local/bin/gnuplot
+export PATH=.:/repos/FRED/bin:/usr/local/bin:$PATH
