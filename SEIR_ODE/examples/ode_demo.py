@@ -12,26 +12,32 @@ from tqdm import tqdm
 from types import SimpleNamespace
 from copy import deepcopy as dc
 
-import examples.ode_tools as ode
+# import examples.ode_tools as ode
+#
+# parser = argparse.ArgumentParser('ODE demo')
+# parser.add_argument('--method', type=str, choices=['dopri5', 'adams'], default='dopri5')
+# parser.add_argument('--batch_time', type=int, default=10)
+# parser.add_argument('--batch_size', type=int, default=5)
+# parser.add_argument('--niters', type=int, default=10000)
+# parser.add_argument('--test_freq', type=int, default=100)
+# parser.add_argument('--viz', action='store_true', default=True)
+# parser.add_argument('--gpu', type=int, default=0)
+# parser.add_argument('--adjoint', action='store_true')
+# args = parser.parse_args()
+#
+# if args.adjoint:
+#     from torchdiffeq import odeint_adjoint as odeint
+# else:
+#     from torchdiffeq import odeint
+#
+# device = torch.device('cuda:' + str(args.gpu) if torch.cuda.is_available() else 'cpu')
+# ode.setup_visual(args)
 
-parser = argparse.ArgumentParser('ODE demo')
-parser.add_argument('--method', type=str, choices=['dopri5', 'adams'], default='dopri5')
-parser.add_argument('--batch_time', type=int, default=10)
-parser.add_argument('--batch_size', type=int, default=5)
-parser.add_argument('--niters', type=int, default=10000)
-parser.add_argument('--test_freq', type=int, default=100)
-parser.add_argument('--viz', action='store_true', default=True)
-parser.add_argument('--gpu', type=int, default=0)
-parser.add_argument('--adjoint', action='store_true')
-args = parser.parse_args()
+float_type = torch.float64
 
-if args.adjoint:
-    from torchdiffeq import odeint_adjoint as odeint
-else:
-    from torchdiffeq import odeint
+# Do we want to re-normalize the population online? Probably not.
+DYNAMIC_NORMALIZATION = False
 
-device = torch.device('cuda:' + str(args.gpu) if torch.cuda.is_available() else 'cpu')
-ode.setup_visual(args)
 
 def get_diff(_state, _params):
 
@@ -40,16 +46,15 @@ def get_diff(_state, _params):
     gamma = np.exp(_params.log_gamma)
     alpha = np.exp(_params.log_alpha)
 
-    S, E1, E2, I1, I2, I3, R = tuple(_state[:, i] for i in
-                                     range(_state.shape[1]))
+    S, E1, E2, I1, I2, I3, R = tuple(_state[:, i] for i in range(_state.shape[1]))
     N = _state.sum(dim=1)
 
-    s_to_e1 = (1 - mu) * beta * S * (I1 + I2 + I3) / N
-    e1_to_e2 = 2*alpha*E1
-    e2_to_i1 = 2*alpha*E2
-    i1_to_i2 = 3*gamma*I1
-    i2_to_i3 = 3*gamma*I2
-    i3_to_r = 3*gamma*I3
+    s_to_e1 = ((1 - mu) * beta * S * (I1 + I2 + I3) / N).type(float_type)
+    e1_to_e2 = (2*alpha*E1).type(float_type)
+    e2_to_i1 = (2*alpha*E2).type(float_type)
+    i1_to_i2 = (3*gamma*I1).type(float_type)
+    i2_to_i3 = (3*gamma*I2).type(float_type)
+    i3_to_r = (3*gamma*I3).type(float_type)
 
     _d_s = -s_to_e1
     _d_e1 = s_to_e1 - e1_to_e2
@@ -66,8 +71,15 @@ def simulate_seir(_state, _params, _dt, _t, _noise_func):
     _state = dc(_state)
     _state_history = [dc(_state)]
     for _ in range(int(np.round(_t/_dt))):
+        _n = torch.sum(_state, dim=1)
         _grad = get_diff(_state, _noise_func(_params))
         _state += _grad * _dt
+        _new_n = torch.sum(_state, dim=1)
+
+        if DYNAMIC_NORMALIZATION:
+            _f_d_n = _n / _new_n
+            _state *= _f_d_n
+
         _state_history.append(dc(_state))
     return torch.stack(_state_history)
 
@@ -78,23 +90,24 @@ if __name__ == '__main__':
 
     # Define parameters
     N_sim = 100
-    T = 100
+    T = 500
     dt = .1
     N = 10000
     init_vals = torch.tensor([[1 - 1 / N, 1 / N, 0, 0, 0, 0, 0]] * N_sim)
     t = torch.linspace(0, T, int(T / dt) + 1)
     dims = 4
 
-    infection_threshold = 0.2
+    infection_threshold = 0.1
 
-    mu = 0
+    mu = 0.2
     log_alpha = np.log(torch.tensor((1/5.1, )))
     log_beta = np.log(torch.tensor((2.6/3.3, )))
     log_gamma = np.log(torch.tensor((1/3.3, )))
 
     params = SimpleNamespace(**{'log_alpha':    log_alpha,
                                 'log_beta':     log_beta,
-                                'log_gamma':    log_gamma})
+                                'log_gamma':    log_gamma,
+                                'mu':           mu})
 
 
     def prior_parameters(_params):
@@ -142,40 +155,51 @@ if __name__ == '__main__':
         [plt.plot(t.numpy(), _results.numpy()[:, _i, 1], 'm--', alpha=_alphas[_i]) for _i in range(N_sim)]
         [plt.plot(t.numpy(), _results.numpy()[:, _i, 3], 'y--', alpha=_alphas[_i]) for _i in range(N_sim)]
         [plt.plot(t.numpy(), _results.numpy()[:, _i, 2], 'k--', alpha=5 * _alphas[_i]) for _i in range(N_sim)]
+        populace = _results.numpy()[:, :, 0] + _results.numpy()[:, :, 1] + _results.numpy()[:, :, 2] + \
+                   _results.numpy()[:, :, 3] + _results.numpy()[:, :, 4] + _results.numpy()[:, :, 5] + \
+                   _results.numpy()[:, :, 6]
+        [plt.plot(t.numpy(), populace[:, _i], 'k:', label='N_t' if _i == 0 else None, alpha=_alphas[_i]) for _i in range(N_sim)]
 
-    # noised_parameters = prior_parameters(params)
-    # results_noise = simulate_seir(init_vals, noised_parameters, dt, T, ident_parameters)  # noise_parameters to use gil.
-    # valid_simulations = valid_simulation(results_noise)
-    # alphas = 0.0 + 0.1 * valid_simulations.numpy().astype(np.int)
-    #
-    #
-    # plt.figure(1)
-    # _plot(results_noise, alphas)
-    # results_ident = simulate_seir(init_vals[0].unsqueeze(0), ident_parameters(params), dt, T, ident_parameters)
-    # plt.plot(t.numpy(), results_ident.numpy()[:, 0, 0], 'c', label='S under prior', )
-    # plt.plot(t.numpy(), results_ident.numpy()[:, 0, 1], 'm', label='E under prior', )
-    # plt.plot(t.numpy(), results_ident.numpy()[:, 0, 2], 'k', label='I under prior', )
-    # plt.plot(t.numpy(), results_ident.numpy()[:, 0, 3], 'y', label='R under prior', )
-    # plt.plot(t.numpy(), (torch.ones_like(t) * infection_threshold).numpy(), 'k--', linewidth=3.0)
-    # plt.ylabel('Fraction of populace.')
-    # plt.xlabel('Time (~days).')
-    # plt.gca().legend(loc='upper center', bbox_to_anchor=(0.5, 1.15),
-    #           ncol=3, fancybox=True, shadow=True)
-    # plt.savefig('./png/trajectory_example.png')
-    #
-    #
-    # plt.figure(2)
-    # plt.scatter(noised_parameters.log_beta, noised_parameters.log_gamma, c='r')
-    # plt.scatter(noised_parameters.log_beta[valid_simulations], noised_parameters.log_gamma[valid_simulations], c='g')
-    # plt.xlabel('log beta')
-    # plt.ylabel('log gamma')
-    #
-    #
-    # plt.close(1)
-    # plt.close(2)
+    noised_parameters = prior_parameters(params)
+    results_noise = simulate_seir(init_vals, noised_parameters, dt, T, ident_parameters)  # noise_parameters to use gil.
+    valid_simulations = valid_simulation(results_noise)
+    alphas = 0.0 + 0.1 * valid_simulations.numpy().astype(np.int)
+
+
+    plt.figure(1)
+    _plot(results_noise, alphas)
+    results_ident = simulate_seir(init_vals[0].unsqueeze(0), ident_parameters(params), dt, T, ident_parameters)
+    plt.plot(t.numpy(), results_ident.numpy()[:, 0, 0], 'c', label='S under prior', )
+    plt.plot(t.numpy(), results_ident.numpy()[:, 0, 1] + results_ident.numpy()[:, 0, 2], 'm', label='E under prior', )
+    plt.plot(t.numpy(), results_ident.numpy()[:, 0, 3] + results_ident.numpy()[:, 0, 4] + results_ident.numpy()[:, 0, 5], 'k', label='I under prior', )
+    plt.plot(t.numpy(), results_ident.numpy()[:, 0, 6], 'y', label='R under prior', )
+    plt.plot(t.numpy(), (torch.ones_like(t) * infection_threshold).numpy(), 'k--', linewidth=3.0)
+    populace = results_ident.numpy()[:, 0, 0] + results_ident.numpy()[:, 0, 1] + results_ident.numpy()[:, 0, 2] + \
+               results_ident.numpy()[:, 0, 3] + results_ident.numpy()[:, 0, 4] + results_ident.numpy()[:, 0, 5] + \
+               results_ident.numpy()[:, 0, 6]
+    plt.plot(t.numpy(), populace, 'k:', label='N_t', )
+
+    plt.ylabel('Fraction of populace.')
+    plt.xlabel('Time (~days).')
+    plt.gca().legend(loc='upper center', bbox_to_anchor=(0.5, 1.15),
+              ncol=3, fancybox=True, shadow=True)
+    plt.savefig('./png/trajectory_example.png')
+
+
+    plt.figure(2)
+    plt.scatter(noised_parameters.log_beta, noised_parameters.log_gamma, c='r')
+    plt.scatter(noised_parameters.log_beta[valid_simulations], noised_parameters.log_gamma[valid_simulations], c='g')
+    plt.xlabel('log beta')
+    plt.ylabel('log gamma')
+
+
+    plt.close(1)
+    plt.close(2)
 
 
     # DO ITERATIVE REPLANNING ------------------------------------------------------------------------------------------
+
+    raise NotImplementedError
 
     ffmpeg_command = 'ffmpeg -y -r 25 -i ./png/mpc_%05d.png -c:v libx264 -vf fps=25 -tune stillimage ./mpc.mp4'
     print('ffmpeg command: ' + ffmpeg_command)
@@ -218,15 +242,15 @@ if __name__ == '__main__':
         # Trajectory plot.
         axe[0].cla()
         if _t > 0:
-            axe[0].plot(t[:_t+1].numpy(), np.asarray(visited_states)[:-1, 0], 'c')  # -1 because we have appended next state already.
-            axe[0].plot(t[:_t+1].numpy(), np.asarray(visited_states)[:-1, 1], 'm')  # -1 because we have appended next state already.
-            axe[0].plot(t[:_t+1].numpy(), np.asarray(visited_states)[:-1, 3], 'y')  # -1 because we have appended next state already.
-            axe[0].plot(t[:_t+1].numpy(), np.asarray(visited_states)[:-1, 2], 'k')  # -1 because we have appended next state already.
+            axe[0].plot(t[:_t+1].numpy(), np.asarray(visited_states)[:-1, 0], 'c')
+            axe[0].plot(t[:_t+1].numpy(), np.asarray(visited_states)[:-1, 1] + np.asarray(visited_states)[:-1, 2], 'm')
+            axe[0].plot(t[:_t+1].numpy(), np.asarray(visited_states)[:-1, 6], 'y')
+            axe[0].plot(t[:_t+1].numpy(), np.asarray(visited_states)[:-1, 3] + np.asarray(visited_states)[:-1, 4] + np.asarray(visited_states)[:-1, 5], 'k')
         if _t < (np.int(np.round(T / dt)) - 1):
             [axe[0].plot(t[_t:].numpy(), np.asarray(results_noise)[:, _i, 0], 'c--', alpha=alphas[_i]) for _i in sims_to_plot]
-            [axe[0].plot(t[_t:].numpy(), np.asarray(results_noise)[:, _i, 1], 'm--', alpha=alphas[_i]) for _i in sims_to_plot]
-            [axe[0].plot(t[_t:].numpy(), np.asarray(results_noise)[:, _i, 3], 'y--', alpha=alphas[_i]) for _i in sims_to_plot]
-            [axe[0].plot(t[_t:].numpy(), np.asarray(results_noise)[:, _i, 2], 'k--', alpha=2 * alphas[_i]) for _i in sims_to_plot]
+            [axe[0].plot(t[_t:].numpy(), np.asarray(results_noise)[:, _i, 1] + np.asarray(results_noise)[:, _i, 2], 'm--', alpha=alphas[_i]) for _i in sims_to_plot]
+            [axe[0].plot(t[_t:].numpy(), np.asarray(results_noise)[:, _i, 6], 'y--', alpha=alphas[_i]) for _i in sims_to_plot]
+            [axe[0].plot(t[_t:].numpy(), np.asarray(results_noise)[:, _i, 3] + np.asarray(results_noise)[:, _i, 4] + np.asarray(results_noise)[:, _i, 5], 'k--', alpha=2 * alphas[_i]) for _i in sims_to_plot]
         axe[0].plot(t.numpy(), (torch.ones_like(t) * infection_threshold).numpy(), 'k--', linewidth=3.0)
         axe[0].set_xlabel('Time (~days)')
         axe[0].set_ylabel('Fraction of populace')
