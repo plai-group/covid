@@ -44,6 +44,8 @@ warnings.filterwarnings("ignore")
 
 def get_diff(_state, _params):
 
+    Lambda = _params.Lambda
+    kappa = _params.kappa
     mu = _params.mu
     r0 = np.exp(_params.log_r0)
     gamma = np.exp(_params.log_gamma)
@@ -52,8 +54,6 @@ def get_diff(_state, _params):
     S, E1, E2, I1, I2, I3, R = tuple(_state[:, i] for i in range(_state.shape[1]))
     N = _state.sum(dim=1)
 
-    # TODO - implement death and birth.
-
     s_to_e1 = ((1 - mu) * r0 * gamma * S * (I1 + I2 + I3) / N).type(float_type)
     e1_to_e2 = (2*alpha*E1).type(float_type)
     e2_to_i1 = (2*alpha*E2).type(float_type)
@@ -61,13 +61,13 @@ def get_diff(_state, _params):
     i2_to_i3 = (3*gamma*I2).type(float_type)
     i3_to_r = (3*gamma*I3).type(float_type)
 
-    _d_s = -s_to_e1
-    _d_e1 = s_to_e1 - e1_to_e2
-    _d_e2 = e1_to_e2 - e2_to_i1
-    _d_i1 = e2_to_i1 - i1_to_i2 - mu*I1
-    _d_i2 = i1_to_i2 - i2_to_i3 - mu*I2
-    _d_i3 = i2_to_i3 - i3_to_r - mu*I3
-    _d_r = i3_to_r
+    _d_s = Lambda*N - s_to_e1 - mu*S
+    _d_e1 = s_to_e1 - e1_to_e2 - mu*E1
+    _d_e2 = e1_to_e2 - e2_to_i1 - mu*E2
+    _d_i1 = e2_to_i1 - i1_to_i2 - (mu+kappa)*I1
+    _d_i2 = i1_to_i2 - i2_to_i3 - (mu+kappa)*I2
+    _d_i3 = i2_to_i3 - i3_to_r - (mu+kappa)*I3
+    _d_r = i3_to_r - mu*R
 
     return torch.stack((_d_s, _d_e1, _d_e2, _d_i1, _d_i2, _d_i3, _d_r), dim=1)
 
@@ -102,17 +102,22 @@ if __name__ == '__main__':
     t = torch.linspace(0, T, int(T / dt) + 1)
     dims = 4
 
-    infection_threshold = 0.1
+    infection_threshold = 0.06
 
-    mu = 0.057/3.3
+    kappa = 0.057/3.3
     log_alpha = np.log(torch.tensor((1/5.1, )))
     log_r0 = np.log(torch.tensor((2.6, )))
     log_gamma = np.log(torch.tensor((1/3.3, )))
 
+    Lambda = 0.00116 # US birth rate from https://www.cdc.gov/nchs/data/nvsr/nvsr68/nvsr68_13-508.pdf
+    mu = 0.008678  # non-covid death rate https://www.cdc.gov/nchs/nvss/deaths.htm
+
     params = SimpleNamespace(**{'log_alpha':    log_alpha,
                                 'log_r0':       log_r0,
                                 'log_gamma':    log_gamma,
-                                'mu':           mu})
+                                'mu':           mu,
+                                'kappa':        kappa,
+                                'Lambda':       Lambda})
 
 
     def sample_prior_parameters(_params):
@@ -128,7 +133,6 @@ if __name__ == '__main__':
         def sample_from_confidence_interval(low, high):
             return low + torch.rand(N_sim) * (high-low)
         _params = dc(_params)
-        _params.mu = mu
         incubation_period = sample_from_confidence_interval(4.5, 5.8)
         _params.log_alpha = torch.tensor(1/incubation_period).log()
         infectious_period = sample_from_confidence_interval(1.7, 5.6)
