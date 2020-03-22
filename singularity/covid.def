@@ -40,4 +40,4 @@ export LD_LIBRARY_PATH=/usr/local/lib/:$LD_LIBRARY_PATH
 # FRED
 export FRED_HOME=/repos/FRED
 export FRED_GNUPLOT=/usr/local/bin/gnuplot
-export PATH=.:/repos/FRED/bin:/usr/local/bin:$PATH
+export PATH=/repos/FRED/bin:/usr/local/bin:$PATH
