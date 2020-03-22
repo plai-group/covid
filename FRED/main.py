@@ -1,14 +1,39 @@
-import pyprob
 import subprocess, os, signal
+import pyprob
 from pyprob import RemoteModel
 import numpy as np
+from pathlib import Path
 import torch
+from types import SimpleNamespace
+from sacred import Experiment
 
 server_address = 'ipc://@FRED'
 model_executable = 'FRED'
 fred_home = os.environ['FRED_HOME']
 parameter_file = f'{fred_home}/input_files/default'
 out_dir = 'OUT_TEST'
+
+# Use sacred for command line interface + hyperparams
+ex = Experiment()
+
+@ex.config
+def my_config():
+    # paths
+    out_dir = './dummy'
+    params_path = './path'
+    results_path = '.'
+    level_1 = 'experiments'
+    level_2 = 'level_2'
+    level_3 = 'level_3'
+
+def init(config):
+    # This gives dot access to all paths, hyperparameters, etc
+    args = SimpleNamespace(**config)
+    out_dir = Path(args.results_path) / args.level_1 / args.level_2 / args.level_3
+    out_dir.mkdir(parents=True, exist_ok=True)
+    args.out_dir = str(out_dir)
+    return args
+
 
 def read_param_file(path):
     with open(path, 'r') as f:
@@ -36,20 +61,22 @@ def write_parameter_file(path, sampled_parameters={}):
         for param, value in params.items():
             f.write(f'{param} = {value}\n')
 
+def run(args):
+    def model_dispatcher(trace_idx):
+        arguments = f'{parameter_file} {trace_idx} {args.out_dir}'
+        return subprocess.Popen(f'{model_executable} {server_address} {arguments} 2>&1 > {args.out_dir}/LOG{trace_idx} &', shell=True, preexec_fn=os.setsid)
 
-def model_dispatcher(trace_idx):
-    arguments = f'{parameter_file} {trace_idx} {out_dir}'
-    os.makedirs(out_dir, exist_ok=True)
-    return subprocess.Popen(f'{model_executable} {server_address} {arguments} 2>&1 > {out_dir}/LOG{trace_idx} &', shell=True, preexec_fn=os.setsid)
-
-if __name__ == '__main__':
     try:
         model = RemoteModel(server_address, model_dispatcher=model_dispatcher, restart_per_trace=True)
         traces = model.posterior(num_traces=10, inference_engine=pyprob.InferenceEngine.IMPORTANCE_SAMPLING)
         for idx, trace in enumerate(traces):
-            write_parameter_file(sampled_parameters={trace.variables[0].name: trace.variables[0].value.item()}, path=os.path.join(out_dir, f'params{idx}'))
-
+            write_parameter_file(sampled_parameters={trace.variables[0].name: trace.variables[0].value.item()}, path=os.path.join(args.out_dir, f'params{idx}'))
     finally:
         if model._model_process is not None:
             print('Done, killing model process: {}'.format(model._model_process.pid))
             os.killpg(os.getpgid(model._model_process.pid), signal.SIGTERM)
+
+@ex.automain
+def command_line_entry(_run,_config):
+    args = init(_config)
+    run(args)
