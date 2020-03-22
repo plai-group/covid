@@ -19,7 +19,7 @@ ex = Experiment()
 @ex.config
 def my_config():
     # paths
-    params_base = f'{fred_home}/input_files/defaults'
+    params_base = f'params'
     level_1 = f'{home}/scratch/covid_results'
     level_2 = 'experiment_name'
     level_3 = 'level_3'
