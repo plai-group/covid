@@ -14,8 +14,6 @@ slurm_nodes=1
 array_flag=false
 array_first=0
 array_last=2
-specific=false
-no_extra=false
 parse_args() {
   if [[ $# -ge 1 ]]; then
     case $1 in
