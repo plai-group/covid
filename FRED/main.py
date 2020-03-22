@@ -9,8 +9,9 @@ from sacred import Experiment
 
 server_address = 'ipc://@FRED'
 model_executable = 'FRED'
-fred_home = os.environ['FRED_HOME']
-home = os.environ['HOME']
+FRED_HOME = os.environ['FRED_HOME']
+HOME = os.environ['HOME']
+USER = os.environ['USER']
 default_params = None
 
 # Use sacred for command line interface + hyperparams
@@ -19,8 +20,8 @@ ex = Experiment()
 @ex.config
 def my_config():
     # paths
-    params_base = f'params'
-    level_1 = f'{home}/scratch/covid_results'
+    params_base = 'params'
+    level_1 = f'/scratch/{USER}'
     level_2 = 'experiment_name'
     level_3 = 'level_3'
     debug = False
@@ -52,7 +53,7 @@ def get_default_params():
         return default_params.copy()
     defaults = 'defaults'
     if not os.path.exists(defaults):
-        defaults = os.path.join(fred_home, 'input_files', 'defaults')
+        defaults = os.path.join(FRED_HOME, 'input_files', 'defaults')
     if not os.path.exists(defaults):
         raise Exception('could not find defaults file')
     params = read_param_file(defaults)
