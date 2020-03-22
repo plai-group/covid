@@ -26,7 +26,7 @@ warnings.filterwarnings("ignore")
 # CONFIGURE SIMULATION ---------------------------------------------------------------------------------------------
 
 # Experiments to run.
-experiment_single_rollout = False
+experiment_single_rollout = True
 experiment_nmc_example = True
 experiment_mpc_example = True
 
@@ -40,8 +40,8 @@ log_mu = torch.log(torch.tensor((0.008678 / 365, )))     # non-covid death rate 
 u = torch.tensor(0.)
 
 # Make sure we are controlling the right things.
-controlled_parameters = ['log_r0']  # We can select r0.
-uncontrolled_parameters = ['log_kappa', 'log_alpha', 'log_gamma', 'log_lambda', 'log_mu']
+controlled_parameters = ['log_u']  # We can select u.
+uncontrolled_parameters = ['log_kappa', 'log_alpha', 'log_gamma', 'log_lambda', 'log_mu', 'log_r0']
 
 # Define the simulation properties.
 T = 200
@@ -68,6 +68,7 @@ params = SimpleNamespace(**{'log_alpha': log_alpha,
                             'policy': {'infection_threshold': infection_threshold},
                             'dt': dt})
 init_vals = seir.sample_x0(N_simulation, initial_population)
+
 
 def valid_simulation(_state, _params):
     """
@@ -100,6 +101,28 @@ if __name__ == '__main__':
 
     # DO SINGLE NMC EXPERIMENT -----------------------------------------------------------------------------------------
 
+
+    def _nmc_estimate(_current_state, _controlled_parameters):
+        """
+        AW - _nmc_estimate - calculate the probability that the specified parameters will
+        :param _current_state:          state to condition on.
+        :param _controlled_parameters:  dictionary of parameters to condition on.
+        :return:
+        """
+        # Draw the parameters we wish to marginalize over.
+        _new_parameters = seir.sample_prior_parameters(params, N_simulation)
+
+        # Overwrite with the specified parameter value.
+        _new_parameters.log_r0[:] = _controlled_parameters['log_r0']
+
+        # Run the simulation with the controlled parameters, marginalizing over the others.
+        _results_noise = seir.simulate_seir(_current_state, _new_parameters, dt, T - time,
+                                            seir.sample_unknown_parameters)
+        _valid_simulations = valid_simulation(_results_noise, _new_parameters)
+        p_valid = _valid_simulations.type(torch.float).mean()
+        return p_valid
+
+
     if experiment_nmc_example:
 
         time = 0.0
@@ -125,25 +148,6 @@ if __name__ == '__main__':
             # Put the controlled parameter values into
             controlled_parameter_values = {'log_r0': _params.log_r0}
 
-            def _nmc_estimate(_current_state, _controlled_parameters):
-                """
-                AW - _nmc_estimate - calculate the probability that the specified parameters will
-                :param _current_state:
-                :param _new_parameters:
-                :return:
-                """
-                # Draw the parameters we wish to marginalize over.
-                _new_parameters = seir.sample_prior_parameters(params, N_simulation)
-
-                # Overwrite with the specified parameter value.
-                _new_parameters.log_r0[:] = _controlled_parameters['log_r0']
-
-                # Run the simulation with the controlled parameters, marginalizing over the others.
-                results_noise = seir.simulate_seir(_current_state, _new_parameters, dt, T - time, seir.sample_unknown_parameters)
-                valid_simulations = valid_simulation(results_noise, _new_parameters)
-                p_valid = valid_simulations.type(torch.float).mean()
-                return p_valid
-
             # Call the NMC subroutine using the parameters and current state.
             p_valid = _nmc_estimate(current_state, controlled_parameter_values)
 
@@ -156,29 +160,26 @@ if __name__ == '__main__':
         # Misc
         p = 0
 
+    # DO ITERATIVE REPLANNING: MODEL PREDICTIVE CONTROL ----------------------------------------------------------------
 
-    # DO ITERATIVE REPLANNING ------------------------------------------------------------------------------------------
-
-    if False:
+    if experiment_mpc_example:
 
         ffmpeg_command = 'ffmpeg -y -r 25 -i ./png/mpc_%05d.png -c:v libx264 -vf fps=25 -tune stillimage ./mpc.mp4'
         print('ffmpeg command: ' + ffmpeg_command)
 
         current_state = dc(init_vals)
+        visited_states = [[dc(current_state[0]).numpy()]]
+
         parameter_traces = {'log_r0': [],
                             'valid_simulations': []}
 
-        visited_states = [[dc(current_state[0]).numpy()]]
-
-        # plt.switch_backend('agg')
         fig, axe = plt.subplots(2, 1, squeeze=True)
-        sims_to_plot = np.random.randint(0, N_sim-1, 50)
 
         for _t in tqdm(np.arange(int(T / dt))):
 
             new_parameters = seir.sample_prior_parameters(params)
-            results_noise = seir.simulate_seir(current_state, new_parameters, dt, T-(dt * _t), sample_noise_parameters)
-            valid_simulations = valid_simulation(results_noise)
+            results_noise = seir.simulate_seir(current_state, new_parameters, dt, T-(dt * _t), seir.sample_unknown_parameters)
+            valid_simulations = valid_simulation(results_noise, new_parameters)
             alphas = 0.0 + 0.1 * valid_simulations.numpy().astype(np.int)
 
             parameter_traces['log_r0'].append(new_parameters.log_r0)
@@ -187,21 +188,14 @@ if __name__ == '__main__':
             # The 1 is important being the simulate seir code also returns the initial state...
             next_state = results_noise[1, np.random.choice(len(valid_simulations), p=valid_simulations.numpy().astype(float)/np.sum(valid_simulations.numpy().astype(int)))]
             current_state[:] = dc(next_state)
-            visited_states.append(dc(next_state).numpy())
+            visited_states.append([dc(next_state).numpy()])
 
-            # Pull up the figure.
-            # plt.figure()
-            # plt.tight_layout()
+            # Do plotting.
             fig.suptitle('t={} / {} days'.format(_t / 10, T))
 
             # Trajectory plot.
-            make_trajectory_plot(axe)
-
-            axe[1].cla()
-            axe[1].hist([np.exp(new_parameters.log_r0[torch.logical_not(valid_simulations)].numpy()),
-                         np.exp(new_parameters.log_r0[valid_simulations].numpy())],
-                        100, histtype='bar', color=['red', 'green'], density=True)
-            axe[1].set_xlabel('R0')
+            plotting.make_trajectory_plot(axe[0], new_parameters, visited_states, results_noise, valid_simulations, t, _t)
+            plotting.make_parameter_plot(axe[1], new_parameters, valid_simulations)
 
             # Misc
             plt.pause(0.1)
@@ -209,60 +203,3 @@ if __name__ == '__main__':
             p = 0
 
         os.system(ffmpeg_command)
-
-    # GENERATE DATA ----------------------------------------------------------------------------------------------------
-
-    raise NotImplementedError  # Probably don't want to go further than this.
-
-    # Need to define an anonymous wrapper for the pytorch code.
-    class ODELambda(nn.Module):
-        def forward(self, t, y):
-            return get_diff(y, params)
-
-    # Go and get some data.
-    with torch.no_grad():
-        true_y = odeint(ODELambda(), init_vals, t, method='dopri5')
-        plt.figure(1)
-        plt.plot(t.numpy(), true_y.numpy()[:, 0], 'c--', label='True S',)
-        plt.plot(t.numpy(), true_y.numpy()[:, 1], 'm--', label='True E',)
-        plt.plot(t.numpy(), true_y.numpy()[:, 2], 'y--', label='True I',)
-        plt.plot(t.numpy(), true_y.numpy()[:, 3], 'k--', label='True R',)
-        plt.ylabel('Fraction of populace.')
-        plt.xlabel('Time (~days).')
-        plt.legend()
-        plt.savefig('./png/trajectory_example.png')
-        plt.close(1)
-
-    # DO DIFF ODE LEARNING ---------------------------------------------------------------------------------------------
-
-    ii = 0
-    func = ode.ODEFunc(dims)
-    optimizer = optim.Adam(func.parameters(), lr=1e-04)
-    end = time.time()
-
-    time_meter = ode.RunningAverageMeter(0.97)
-    loss_meter = ode.RunningAverageMeter(0.97)
-
-    for itr in range(1, args.niters + 1):
-        optimizer.zero_grad()
-        batch_y0, batch_t, batch_y = ode.get_batch(args, true_y, t)
-        pred_y = odeint(func, batch_y0, batch_t)
-        loss = torch.mean(torch.pow(pred_y - batch_y, 2))
-        loss.backward()
-        optimizer.step()
-
-        time_meter.update(time.time() - end)
-        loss_meter.update(loss.item())
-
-        if itr % args.test_freq == 0:
-            with torch.no_grad():
-                try:
-                    pred_y = odeint(func, torch.log(init_vals + ode.eps), t)
-                    loss = torch.mean(torch.abs(pred_y - true_y))
-                    print('Iter {:04d} | Total Loss {:.6f}'.format(itr, loss.item()))
-                    ode.visualize(args, t, true_y, torch.exp(pred_y) - ode.eps, func, itr)
-                    ii += 1
-                except:
-                    pass
-
-        end = time.time()
