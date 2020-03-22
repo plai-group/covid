@@ -102,7 +102,7 @@ if __name__ == '__main__':
     t = torch.linspace(0, T, int(T / dt) + 1)
     dims = 4
 
-    infection_threshold = 0.1
+    infection_threshold = 0.06
 
     mu = 0.1
     log_alpha = np.log(torch.tensor((1/5.1, )))
@@ -120,13 +120,20 @@ if __name__ == '__main__':
         Draw the parameters from the prior to begin with.
         :param _params:
         :return:
+
+        prior for incubation period from https://www.ncbi.nlm.nih.gov/pubmed/32150748
+        all other numbers from `Risk Assessment of Novel Coronavirus COVID-19 Outbreaks Outside China`
         """
-        # TODO - WILL - make sure the prior is parameterized correct and has the correct conditional dependancies.
+        def sample_from_confidence_interval(low, high):
+            return low + torch.rand(N_sim) * (high-low)
         _params = dc(_params)
         _params.mu = mu
-        _params.log_alpha = torch.tensor(np.log(np.random.rayleigh(np.exp(log_alpha[0]), (N_sim, ))))
-        _params.log_r0 =    torch.tensor(np.log(np.random.rayleigh(np.exp(log_r0[0]), (N_sim, ))))
-        _params.log_gamma = torch.tensor(np.log(np.random.rayleigh(np.exp(log_gamma[0]), (N_sim, ))))
+        incubation_period = sample_from_confidence_interval(4.5, 5.8)
+        _params.log_alpha = torch.tensor(1/incubation_period).log()
+        inverse_gamma = sample_from_confidence_interval(1.7, 5.6)
+        _params.log_gamma = (1/inverse_gamma).log()
+        R0 = sample_from_confidence_interval(2.1, 3.1)
+        _params.log_r0 = R0.log()
         return _params
 
 
