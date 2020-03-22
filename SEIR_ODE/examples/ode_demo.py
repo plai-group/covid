@@ -73,6 +73,15 @@ def get_diff(_state, _params):
 
 
 def simulate_seir(_state, _params, _dt, _t, _noise_func):
+    """
+    AW - simulate_seir - simulate entire trajectories of the SEIR model.
+    :param _state:      tensor (N x D):     the initial state of the simulation, where N independent experiments 
+    :param _params:
+    :param _dt:
+    :param _t:
+    :param _noise_func:
+    :return:
+    """
     _state = dc(_state)
     _state_history = [dc(_state)]
     for _ in range(int(np.round(_t/_dt))):
