@@ -37,6 +37,7 @@ log_r0 = torch.log(torch.tensor((2.6, )))
 log_gamma = torch.log(torch.tensor((1 / 3.3,)))
 log_lambda = torch.log(torch.tensor((0.00116 / 365, )))  # US birth rate from https://tinyurl.com/sezkqxc
 log_mu = torch.log(torch.tensor((0.008678 / 365, )))     # non-covid death rate https://tinyurl.com/ybwdzmjs
+u = torch.tensor(0.)
 
 # Make sure we are controlling the right things.
 controlled_parameters = ['log_r0']  # We can select r0.
@@ -61,11 +62,12 @@ params = SimpleNamespace(**{'log_alpha': log_alpha,
                             'log_mu': log_mu,
                             'log_kappa': log_kappa,
                             'log_lambda': log_lambda,
+                            'u': u,
                             'controlled_parameters': controlled_parameters,
                             'uncontrolled_parameters': uncontrolled_parameters,
                             'policy': {'infection_threshold': infection_threshold},
                             'dt': dt})
-
+init_vals = seir.sample_x0(N_simulation, initial_population)
 
 def valid_simulation(_state, _params):
     """
@@ -109,13 +111,13 @@ if __name__ == '__main__':
 
         fig = plt.figure(1)
         for _i in range(N_outer):
-            new_parameters = sample_prior_parameters(params)
+            new_parameters = seir.sample_prior_parameters(params)
 
             # Overwrite with the first set of parameters.
             new_parameters.log_r0[:] = new_parameters.log_r0[0]
 
-            results_noise = simulate_seir(current_state, new_parameters, dt, T - time, sample_unkno_parameters)
-            valid_simulations = valid_simulation(results_noise)
+            results_noise = seir.simulate_seir(current_state, new_parameters, dt, T - time, seir.sample_unknown_parameters)
+            valid_simulations = valid_simulation(results_noise, params)
             p_valid = valid_simulations.type(torch.float).mean()
 
             parameter_traces['log_r0'].append(new_parameters.log_r0[0].numpy())
@@ -153,8 +155,8 @@ if __name__ == '__main__':
 
         for _t in tqdm(np.arange(int(T / dt))):
 
-            new_parameters = sample_prior_parameters(params)
-            results_noise = simulate_seir(current_state, new_parameters, dt, T-(dt * _t), sample_noise_parameters)
+            new_parameters = seir.sample_prior_parameters(params)
+            results_noise = seir.simulate_seir(current_state, new_parameters, dt, T-(dt * _t), sample_noise_parameters)
             valid_simulations = valid_simulation(results_noise)
             alphas = 0.0 + 0.1 * valid_simulations.numpy().astype(np.int)
 
