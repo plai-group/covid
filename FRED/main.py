@@ -19,8 +19,7 @@ ex = Experiment()
 @ex.config
 def my_config():
     # paths
-    params_base = f'{fred_home}/input_files/default'
-    params = 'params_generated'
+    params_base = f'params'
     level_1 = f'{home}/scratch/covid_results'
     level_2 = 'experiment_name'
     level_3 = 'level_3'
@@ -85,6 +84,7 @@ def init(config):
         else:
             args.days = int(get_default_params()['days'])
     
+    args.params = os.path.join(out_dir, 'params_generated')
     with open(args.params, 'w') as f:
         for param, value in base_params.items():
             f.write(f'{param} = {value}\n')
