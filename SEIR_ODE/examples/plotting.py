@@ -91,7 +91,7 @@ def make_parameter_plot(_axe, _new_parameters, _valid_simulations):
     :return:
     """
     _axe.cla()
-    _axe.hist([np.exp(_new_parameters.log_r0[torch.logical_not(_valid_simulations)].numpy()),
-               np.exp(_new_parameters.log_r0[_valid_simulations].numpy())],
+    _axe.hist([_new_parameters.u[torch.logical_not(_valid_simulations)].numpy(),
+               _new_parameters.u[_valid_simulations].numpy()],
               100, histtype='bar', color=['red', 'green'], density=True)
-    _axe.set_xlabel('R0')
+    _axe.set_xlabel('U')

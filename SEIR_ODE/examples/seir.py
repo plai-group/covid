@@ -14,6 +14,7 @@ def get_diff(_state, _params):
     _lambda =    torch.exp(_params.log_lambda)
     _kappa =     torch.exp(_params.log_kappa)
     _mu =        torch.exp(_params.log_mu)
+    _u =                   _params.u
     _r0 =        torch.exp(_params.log_r0)
     _gamma =     torch.exp(_params.log_gamma)
     _alpha =     torch.exp(_params.log_alpha)
@@ -21,7 +22,7 @@ def get_diff(_state, _params):
     _s, _e1, _e2, _i1, _i2, _i3, _r = tuple(_state[:, i] for i in range(_state.shape[1]))
     _n = _state.sum(dim=1)
 
-    s_to_e1 = ((1 - _mu) * _r0 * _gamma * _s * (_i1 + _i2 + _i3) / _n).type(float_type)
+    s_to_e1 = ((1 - _u) * _r0 * _gamma * _s * (_i1 + _i2 + _i3) / _n).type(float_type)
     e1_to_e2 = (2*_alpha*_e1).type(float_type)
     e2_to_i1 = (2*_alpha*_e2).type(float_type)
     i1_to_i2 = (3*_gamma*_i1).type(float_type)
@@ -111,6 +112,9 @@ def sample_prior_parameters(_params, _n=None):
 
     _death_rate = _sample_from_confidence_interval(0.055, 0.059)
     _params.log_kappa = torch.log(_death_rate / _infectious_period)
+
+    u = torch.rand((_n, ))
+    _params.u = u
 
     return _params
 
