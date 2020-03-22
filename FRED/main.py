@@ -10,6 +10,7 @@ from sacred import Experiment
 server_address = 'ipc://@FRED'
 model_executable = 'FRED'
 fred_home = os.environ['FRED_HOME']
+home = os.environ['HOME']
 parameter_file = f'{fred_home}/input_files/default'
 out_dir = 'OUT_TEST'
 
@@ -21,16 +22,15 @@ def my_config():
     # paths
     out_dir = './dummy'
     params_path = './path'
-    results_path = '.'
-    level_1 = 'experiments'
-    level_2 = 'level_2'
+    level_1 = f'{home}/scratch/covid_results'
+    level_2 = 'experiment_name'
     level_3 = 'level_3'
 
 def init(config):
     # This gives dot access to all paths, hyperparameters, etc
     args = SimpleNamespace(**config)
-    out_dir = Path(args.results_path) / args.level_1 / args.level_2 / args.level_3
-    out_dir.mkdir(parents=True, exist_ok=True)
+    out_dir = Path(args.level_1) / args.level_2 / args.level_3
+    out_dir.mkdir(parents=True, exist_ok=False)
     args.out_dir = str(out_dir)
     return args
 
