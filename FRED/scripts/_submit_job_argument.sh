@@ -19,12 +19,13 @@ module load singularity/3.5
 #export SINGULARITY_CACHEDIR="/scratch/$USER/singularity/cache"
 #export SINGULARITY_TMPDIR="/scratch/$USER/singularity/tmp"
 
+SINGULARITY_IMAGE_PATH="/project/def-fwood/saeidnp/singularity_images/covid.sif"
+
 echo '# hostname = '`hostname`
 
 if [ -z $SLURM_ARRAY_TASK_ID ]
 then
-    singularity exec --nv -B /project/def-fwood/saeidnp/rejection -B /scratch/saeidnp /project/def-fwood/saeidnp/singularity_images/rejection.sif python $args
-
+    singularity exec --nv -B /scratch/saeidnp $SINGULARITY_IMAGE_PATH python $args level_2=${exp_name}
 else
-    singularity exec --nv -B /project/def-fwood/saeidnp/rejection -B /scratch/saeidnp /project/def-fwood/saeidnp/singularity_images/rejection.sif python $args level_2=${exp_name} level_3=${SLURM_ARRAY_TASK_ID}
+    singularity exec --nv -B /scratch/saeidnp $SINGULARITY_IMAGE_PATH python $args level_2=${exp_name} level_3=${SLURM_ARRAY_TASK_ID}
 fi
