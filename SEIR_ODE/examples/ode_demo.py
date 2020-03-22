@@ -109,8 +109,8 @@ if __name__ == '__main__':
     log_r0 = np.log(torch.tensor((2.6, )))
     log_gamma = np.log(torch.tensor((1/3.3, )))
 
-    Lambda = 0.00116 # US birth rate from https://www.cdc.gov/nchs/data/nvsr/nvsr68/nvsr68_13-508.pdf
-    mu = 0.008678  # non-covid death rate https://www.cdc.gov/nchs/nvss/deaths.htm
+    Lambda = 0.00116/365 # US birth rate from https://www.cdc.gov/nchs/data/nvsr/nvsr68/nvsr68_13-508.pdf
+    mu = 0.008678/365  # non-covid death rate https://www.cdc.gov/nchs/nvss/deaths.htm
 
     params = SimpleNamespace(**{'log_alpha':    log_alpha,
                                 'log_r0':       log_r0,
