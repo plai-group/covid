@@ -26,12 +26,12 @@ warnings.filterwarnings("ignore")
 # CONFIGURE SIMULATION ---------------------------------------------------------------------------------------------
 
 # Experiments to run.
-experiment_single_rollout = True
+experiment_single_rollout = False
 experiment_nmc_example = True
 experiment_mpc_example = True
 
 # Define base parameters of SEIR model.
-log_kappa = torch.log(torch.tensor((0.057 / 3.3, )))
+log_kappa =     torch.log(torch.tensor((0.057 / 3.3, )))
 log_alpha = torch.log(torch.tensor((1 / 5.1, )))
 log_r0 = torch.log(torch.tensor((2.6, )))
 log_gamma = torch.log(torch.tensor((1 / 3.3,)))
@@ -48,7 +48,7 @@ dt = .1
 initial_population = 10000
 
 # Define the policy objectives.
-infection_threshold = torch.scalar_tensor(0.06)
+infection_threshold = torch.scalar_tensor(0.1)
 
 # Define inference settings.
 N_simulation = 100
@@ -84,6 +84,7 @@ if __name__ == '__main__':
     # DO SINGLE ROLLOUT PLOT -------------------------------------------------------------------------------------------
 
     if experiment_single_rollout:
+
         initial_state = seir.sample_x0(N_simulation, initial_population)
         noised_parameters = seir.sample_prior_parameters(params, N_simulation)
         results_noise = seir.simulate_seir(initial_state, noised_parameters, dt, T, seir.sample_unknown_parameters)  # noise_parameters to use gil.
@@ -95,39 +96,59 @@ if __name__ == '__main__':
         plt.savefig('./png/trajectory.png', dpi=500)
         plt.close()
 
+    # DO SINGLE NMC EXPERIMENT -----------------------------------------------------------------------------------------
 
-    # DO SINGLE NMC ESTIMATE -------------------------------------------------------------------------------------------
-
-    if True:
+    if experiment_nmc_example:
 
         time = 0.0
-        current_state = dc(init_vals)
-        parameter_traces = {'log_r0': [],
-                            'p_valid': []}
+        current_state = seir.sample_x0(N_simulation, initial_population)
 
-        N_outer = 1000
+        outer_samples = {'log_r0': [],
+                         'p_valid': []}
 
-        fig = plt.figure(1)
-        for _i in range(N_outer):
-            new_parameters = sample_prior_parameters(params)
+        N_outer_samples = 1000
 
-            # Overwrite with the first set of parameters.
-            new_parameters.log_r0[:] = new_parameters.log_r0[0]
+        fig_nmc = plt.figure(1)
+        plt.plot((0, 1), (0.9, 0.9), 'k:')
+        plt.ylim((-0.05, 1.05))
+        # plt.xlim((-0.05, 1.05))
+        plt.grid(True)
+        plt.title('p( Y=1 | theta)')
 
-            results_noise = simulate_seir(current_state, new_parameters, dt, T - time, sample_unkno_parameters)
-            valid_simulations = valid_simulation(results_noise)
-            p_valid = valid_simulations.type(torch.float).mean()
+        for _i in range(N_outer_samples):
 
-            parameter_traces['log_r0'].append(new_parameters.log_r0[0].numpy())
-            parameter_traces['p_valid'].append(p_valid)
+            # Get a realization of parameters.
+            _params = seir.sample_prior_parameters(params, 1)
 
-            plt.cla()
-            plt.scatter(parameter_traces['log_r0'], np.asarray(parameter_traces['p_valid']))
-            plt.plot((0, 1), (0.9, 0.9), 'k:')
-            plt.ylim((-0.05, 1.05))
-            # plt.xlim((-0.05, 1.05))
-            plt.grid(True)
-            plt.title('p( Y=1 | theta)')
+            # Put the controlled parameter values into
+            controlled_parameter_values = {'log_r0': _params.log_r0}
+
+            def _nmc_estimate(_current_state, _controlled_parameters):
+                """
+                AW - _nmc_estimate - calculate the probability that the specified parameters will
+                :param _current_state:
+                :param _new_parameters:
+                :return:
+                """
+                # Draw the parameters we wish to marginalize over.
+                _new_parameters = seir.sample_prior_parameters(params, N_simulation)
+
+                # Overwrite with the specified parameter value.
+                _new_parameters.log_r0[:] = _controlled_parameters['log_r0']
+
+                # Run the simulation with the controlled parameters, marginalizing over the others.
+                results_noise = seir.simulate_seir(_current_state, _new_parameters, dt, T - time, seir.sample_unknown_parameters)
+                valid_simulations = valid_simulation(results_noise, _new_parameters)
+                p_valid = valid_simulations.type(torch.float).mean()
+                return p_valid
+
+            # Call the NMC subroutine using the parameters and current state.
+            p_valid = _nmc_estimate(current_state, controlled_parameter_values)
+
+            # Record and plot.
+            outer_samples['log_r0'].append(controlled_parameter_values['log_r0'][0].numpy())
+            outer_samples['p_valid'].append(p_valid)
+            plt.scatter(outer_samples['log_r0'][-1], np.asarray(outer_samples['p_valid'][-1]))
             plt.pause(0.1)
 
         # Misc

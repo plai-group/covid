@@ -81,10 +81,11 @@ def sample_x0(_n, _N):
 def sample_prior_parameters(_params, _n=None):
     """
     WH - sample_prior_parameters - Draw the parameters from the prior to begin with.
+
     :param _params: SimpNameSp: dot accessible simple name space of simulation parameters.
     :param _n       int:        number of parameters to draw.
-    :return: SimpNameSp: dot accessible simple name space of simulation parameters where all parameters have been
-                          redrawn from the prior over parameters, including those that are controllable.
+    :return:        SimpNameSp: dot accessible simple name space of simulation parameters where all parameters have been
+                                 redrawn from the prior over parameters, including those that are controllable.
 
     prior for incubation period from https://www.ncbi.nlm.nih.gov/pubmed/32150748
     prior for death rate from https://www.thelancet.com/journals/laninf/article/PIIS1473-3099(20)30195-X/fulltext#coronavirus-linkback-header
