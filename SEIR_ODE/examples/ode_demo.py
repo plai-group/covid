@@ -140,7 +140,7 @@ if __name__ == '__main__':
         R0 = sample_from_confidence_interval(2.1, 3.1)
         _params.log_r0 = R0.log()
         death_rate = sample_from_confidence_interval(0.055, 0.059)
-        _params.mu = death_rate / infectious_period
+        _params.kappa = death_rate / infectious_period
         return _params
 
 
