@@ -102,9 +102,9 @@ if __name__ == '__main__':
     t = torch.linspace(0, T, int(T / dt) + 1)
     dims = 4
 
-    infection_threshold = 0.06
+    infection_threshold = 0.1
 
-    mu = 0.1
+    mu = 0.057/3.3
     log_alpha = np.log(torch.tensor((1/5.1, )))
     log_r0 = np.log(torch.tensor((2.6, )))
     log_gamma = np.log(torch.tensor((1/3.3, )))
@@ -122,6 +122,7 @@ if __name__ == '__main__':
         :return:
 
         prior for incubation period from https://www.ncbi.nlm.nih.gov/pubmed/32150748
+        prior for death rate from https://www.thelancet.com/journals/laninf/article/PIIS1473-3099(20)30195-X/fulltext#coronavirus-linkback-header
         all other numbers from `Risk Assessment of Novel Coronavirus COVID-19 Outbreaks Outside China`
         """
         def sample_from_confidence_interval(low, high):
@@ -130,10 +131,12 @@ if __name__ == '__main__':
         _params.mu = mu
         incubation_period = sample_from_confidence_interval(4.5, 5.8)
         _params.log_alpha = torch.tensor(1/incubation_period).log()
-        inverse_gamma = sample_from_confidence_interval(1.7, 5.6)
-        _params.log_gamma = (1/inverse_gamma).log()
+        infectious_period = sample_from_confidence_interval(1.7, 5.6)
+        _params.log_gamma = (1/infectious_period).log()
         R0 = sample_from_confidence_interval(2.1, 3.1)
         _params.log_r0 = R0.log()
+        death_rate = sample_from_confidence_interval(0.055, 0.059)
+        _params.mu = death_rate / infectious_period
         return _params
 
 
@@ -176,6 +179,7 @@ if __name__ == '__main__':
         _valid = torch.logical_not(torch.any((_state[:, :, 3] + _state[:, :, 4] + _state[:, :, 5]) > infection_threshold, dim=0))
         return _valid
 
+
     def _plot(_results, _alphas):
         [plt.plot(t.numpy(), _results.numpy()[:, _i, 0], 'c--', alpha=_alphas[_i]) for _i in sims_to_plot]
         [plt.plot(t.numpy(), _results.numpy()[:, _i, 1] + _results.numpy()[:, _i, 2], 'm--', alpha=_alphas[_i]) for _i in sims_to_plot]
@@ -185,6 +189,7 @@ if __name__ == '__main__':
                    _results.numpy()[:, :, 3] + _results.numpy()[:, :, 4] + _results.numpy()[:, :, 5] + \
                    _results.numpy()[:, :, 6]
         [plt.plot(t.numpy(), populace[:, _i], 'k:', label='N_t' if _i == 0 else None, alpha=_alphas[_i]) for _i in sims_to_plot]
+
 
     def make_trajectory_plot(_axe, _visited_states, _results_noise, _t, __t):
         """
@@ -215,6 +220,7 @@ if __name__ == '__main__':
         axe[0].plot(_t.numpy(), (torch.ones_like(_t) * infection_threshold).numpy(), 'k--', linewidth=3.0)
         axe[0].set_xlabel('Time (~days)')
         axe[0].set_ylabel('Fraction of populace')
+
 
     def make_parameter_plot(_axe, _new_parameters, _valid_simulations):
         """
