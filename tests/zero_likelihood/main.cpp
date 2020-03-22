@@ -21,7 +21,7 @@ xt::xarray<double> forward()
 int main(int argc, char *argv[])
 {
   auto serverAddress = (argc > 1) ? argv[1] : "ipc://@my_test";
-  pyprob_cpp::Model model = pyprob_cpp::Model(forward, "Gaussian with unknown mean C++");
+  pyprob_cpp::Model model = pyprob_cpp::Model(forward, "Model with occasional zero likelihood");
   model.startServer(serverAddress);
   return 0;
 }
