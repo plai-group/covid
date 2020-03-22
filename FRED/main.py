@@ -11,8 +11,6 @@ server_address = 'ipc://@FRED'
 model_executable = 'FRED'
 fred_home = os.environ['FRED_HOME']
 home = os.environ['HOME']
-parameter_file = f'{fred_home}/input_files/default'
-out_dir = 'OUT_TEST'
 
 # Use sacred for command line interface + hyperparams
 ex = Experiment()
@@ -20,8 +18,7 @@ ex = Experiment()
 @ex.config
 def my_config():
     # paths
-    out_dir = './dummy'
-    params_path = './path'
+    parameter_file = f'{fred_home}/input_files/default'
     level_1 = f'{home}/scratch/covid_results'
     level_2 = 'experiment_name'
     level_3 = 'level_3'
@@ -48,14 +45,14 @@ def read_param_file(path):
         params_dict[name] = value
     return params_dict
 
-def write_parameter_file(path, sampled_parameters={}):
+def write_parameter_file(path='', args=None, sampled_parameters={}):
     defaults = 'defaults'
     if not os.path.exists(defaults):
         defaults = os.path.join(fred_home, 'input_files', 'defaults')
     if not os.path.exists(defaults):
         raise Exception('could not find defaults file')
     params = read_param_file(defaults)
-    params.update(read_param_file(parameter_file))
+    params.update(read_param_file(args.parameter_file))
     params.update(sampled_parameters)
     with open(path, 'w') as f:
         for param, value in params.items():
@@ -63,14 +60,14 @@ def write_parameter_file(path, sampled_parameters={}):
 
 def run(args):
     def model_dispatcher(trace_idx):
-        arguments = f'{parameter_file} {trace_idx} {args.out_dir}'
+        arguments = f'{args.parameter_file} {trace_idx} {args.out_dir}'
         return subprocess.Popen(f'{model_executable} {server_address} {arguments} 2>&1 > {args.out_dir}/LOG{trace_idx} &', shell=True, preexec_fn=os.setsid)
 
     try:
         model = RemoteModel(server_address, model_dispatcher=model_dispatcher, restart_per_trace=True)
         traces = model.posterior(num_traces=10, inference_engine=pyprob.InferenceEngine.IMPORTANCE_SAMPLING)
         for idx, trace in enumerate(traces):
-            write_parameter_file(sampled_parameters={trace.variables[0].name: trace.variables[0].value.item()}, path=os.path.join(args.out_dir, f'params{idx}'))
+            write_parameter_file(sampled_parameters={trace.variables[0].name: trace.variables[0].value.item()}, path=os.path.join(args.out_dir, f'params{idx}'), args=args)
     finally:
         if model._model_process is not None:
             print('Done, killing model process: {}'.format(model._model_process.pid))
