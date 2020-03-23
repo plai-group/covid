@@ -21,7 +21,7 @@ ex = Experiment()
 def my_config():
     # paths
     params_base = 'params'
-    level_1 = f'/scratch/{USER}'
+    level_1 = f'results'
     level_2 = 'experiment_name'
     level_3 = 'level_3'
     debug = False
@@ -105,6 +105,7 @@ def run(args):
                                  observe={f'obs_{i}': 0.1 for i in range(args.days)})
         for idx, trace in enumerate(traces):
             dump_parameter_file(sampled_parameters={trace.variables[0].name: trace.variables[0].value.item()}, path=os.path.join(args.out_dir, f'params{idx}'), args=args)
+        traces.copy(file_name=os.path.join(args.out_dir, f'traces')) # Save the traces to file
     finally:
         if model._model_process is not None:
             print('Done, killing model process: {}'.format(model._model_process.pid))
