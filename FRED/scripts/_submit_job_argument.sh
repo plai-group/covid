@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #SBATCH -t 48:00:00
-#SBATCH --account=def-fwood
+#SBATCH --account=rrg-kevinlb
 #SBATCH --mem=16G
 #SBATCH --mail-user=saeidnp@cs.ubc.ca
 #SBATCH --mail-type=ALL
@@ -19,13 +19,13 @@ module load singularity/3.5
 #export SINGULARITY_CACHEDIR="/scratch/$USER/singularity/cache"
 #export SINGULARITY_TMPDIR="/scratch/$USER/singularity/tmp"
 
-SINGULARITY_IMAGE_PATH="/project/def-fwood/saeidnp/singularity_images/covid.sif"
+SINGULARITY_IMAGE_PATH="/project/def-fwood/$USER/singularity_images/covid.sif"
 
 echo '# hostname = '`hostname`
 
 if [ -z $SLURM_ARRAY_TASK_ID ]
 then
-    singularity exec -B $SCRATCH $SINGULARITY_IMAGE_PATH python $args level_2=${exp_name}
+    singularity run -B $SCRATCH -B $SLURM_TMPDIR -B $PWD:/workdir $SINGULARITY_IMAGE_PATH python $args out_level_2=${exp_name} tmp_directory=${SLURM_TMPDIR}
 else
-    singularity exec -B $SCRATCH $SINGULARITY_IMAGE_PATH python $args level_2=${exp_name} level_3=sim${SLURM_ARRAY_TASK_ID}
+    singularity run -B $SCRATCH $SINGULARITY_IMAGE_PATH python $args out_level_2=${exp_name} out_level_3=sim${SLURM_ARRAY_TASK_ID} tmp_directory=${SLURM_TMPDIR}
 fi
