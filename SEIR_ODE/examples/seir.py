@@ -114,6 +114,7 @@ def sample_prior_parameters(_params, _n=None):
     _params.log_kappa = torch.log(_death_rate / _infectious_period)
 
     u = torch.rand((_n, ))
+    # u[:] = 0.0
     _params.u = u
 
     return _params
@@ -160,3 +161,20 @@ def sample_identity_parameters(_params, _n=None):
     :return: copy of the simulation parameters.
     """
     return dc(_params)
+
+
+def policy_tradeoff(_params):
+    # Do u / R0 plotting.
+    n_sweep = 1001
+    u = np.square(1 - _params.u)  # 1-u because u is a _reduction_.
+    alpha = np.linspace(0, 2.0, num=n_sweep)
+    beta = np.zeros((len(u), n_sweep))
+    for _u in range(len(u)):
+        for _a in range(len(alpha)):
+            beta[_u, _a] = u[_u] / alpha[_a]
+
+    typical_u = 1.0
+    typical_alpha = alpha
+    typical_beta = typical_u / typical_alpha
+
+    return alpha, beta, typical_u, typical_alpha, typical_beta
