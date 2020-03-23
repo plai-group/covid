@@ -9,8 +9,9 @@ from sacred import Experiment
 import json
 import tarfile
 import tempfile
+import uuid
 
-server_address = 'ipc://@FRED'
+server_address = f'ipc://@FRED:{uuid.uuid1().hex}'
 model_executable = 'FRED'
 FRED_HOME = os.environ['FRED_HOME']
 HOME = os.environ['HOME']
