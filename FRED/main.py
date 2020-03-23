@@ -143,6 +143,7 @@ def run(args):
 
         if args.tar_file_path is not None:
             # Compress the outputs
+            print('Compressing the output')
             with tarfile.open(args.tar_file_path, "w:gz") as tar:
                 os.chdir(args.out_dir)
                 for name in os.listdir("."):
