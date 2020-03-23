@@ -1,6 +1,0 @@
-days = 100
-fips = 42065
-verbose = 0
-enable_visualization_layer = 1
-household_visualization_mode = 0
-census_tract_visualization_mode = 1

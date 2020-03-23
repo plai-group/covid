@@ -20,7 +20,7 @@ ex = Experiment()
 @ex.config
 def my_config():
     # paths
-    params_base = 'params'
+    params_base = f'{FRED_HOME}/jefferson_county/params'
     level_1 = f'results'
     level_2 = 'experiment_name'
     level_3 = 'level_3'
@@ -100,11 +100,13 @@ def run(args):
             return subprocess.Popen(f'{model_executable} {server_address} {arguments} &', shell=True, preexec_fn=os.setsid)
 
     try:
-        model = RemoteModel(server_address, model_dispatcher=model_dispatcher, restart_per_trace=True)
+        model = RemoteModel(server_address, model_dispatcher=model_dispatcher,
+                            restart_per_trace=True, kill_on_zero_likelihood=True)
         traces = model.posterior(num_traces=args.num_traces, inference_engine=pyprob.InferenceEngine.IMPORTANCE_SAMPLING,
                                  observe={f'obs_{i}': 0.1 for i in range(args.days)})
         for idx, trace in enumerate(traces):
             dump_parameter_file(sampled_parameters={trace.variables[0].name: trace.variables[0].value.item()}, path=os.path.join(args.out_dir, f'params{idx}'), args=args)
+            print(f'likelihood {idx}: {torch.exp(trace.log_prob)}')
         traces.copy(file_name=os.path.join(args.out_dir, f'traces')) # Save the traces to file
     finally:
         if model._model_process is not None:
