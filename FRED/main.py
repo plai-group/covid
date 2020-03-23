@@ -11,7 +11,7 @@ import tarfile
 import tempfile
 import uuid
 
-server_address = f'ipc://@FRED:{uuid.uuid1().hex}'
+server_address = f'ipc://@FRED:{uuid.uuid4().hex}'
 model_executable = 'FRED'
 FRED_HOME = os.environ['FRED_HOME']
 HOME = os.environ['HOME']
