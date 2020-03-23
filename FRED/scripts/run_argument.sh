@@ -2,7 +2,8 @@
 export now=$(date +"%Y_%m_%d_%H_%M_%S" )
 echo $now
 
-root_dir='/project/def-fwood/saeidnp/rejection'
+# Set the path to the one directory up from this script as the root dirirectory
+root_dir=`dirname "$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"`
 
 declare -A options
 declare -a flags
