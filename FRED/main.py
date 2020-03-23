@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from sacred import Experiment
 import json
 import tarfile
+import tempfile
 
 server_address = 'ipc://@FRED'
 model_executable = 'FRED'
@@ -83,6 +84,7 @@ def init(config, seed):
         out_dir = Path(args.out_level_1) / args.out_level_2 / args.out_level_3
         args.tar_file_path = None
     else:
+        args.tmp_directory = tempfile.mktemp(dir=args.tmp_directory)
         out_dir = Path(args.tmp_directory) / args.out_level_2 / args.out_level_3
         tar_file_path = Path(args.out_level_1) / args.out_level_2 / f'{args.out_level_3}.tar.gz'
         if not args.debug:
