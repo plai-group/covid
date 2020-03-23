@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #SBATCH -t 48:00:00
-#SBATCH --account=rrg-kevinlb
+#SBATCH --account=def-fwood
 #SBATCH --mem=16G
 #SBATCH --mail-user=saeidnp@cs.ubc.ca
 #SBATCH --mail-type=ALL
@@ -25,7 +25,7 @@ echo '# hostname = '`hostname`
 
 if [ -z $SLURM_ARRAY_TASK_ID ]
 then
-    singularity exec --nv -B /scratch/saeidnp $SINGULARITY_IMAGE_PATH python $args level_2=${exp_name}
+    singularity exec -B $SCRATCH $SINGULARITY_IMAGE_PATH python $args level_2=${exp_name}
 else
-    singularity exec --nv -B /scratch/saeidnp $SINGULARITY_IMAGE_PATH python $args level_2=${exp_name} level_3=${SLURM_ARRAY_TASK_ID}
+    singularity exec -B $SCRATCH $SINGULARITY_IMAGE_PATH python $args level_2=${exp_name} level_3=${SLURM_ARRAY_TASK_ID}
 fi
