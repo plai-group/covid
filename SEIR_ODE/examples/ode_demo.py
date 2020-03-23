@@ -27,23 +27,43 @@ warnings.filterwarnings("ignore")
 
 # Experiments to run.
 experiment_single_rollout = True
+experiment_peak_versus_deaths = True
 experiment_nmc_example = True
 experiment_mpc_example = True
 
 # Define base parameters of SEIR model.
-log_kappa =     torch.log(torch.tensor((0.057 / 3.3, )))
 log_alpha = torch.log(torch.tensor((1 / 5.1, )))
 log_r0 = torch.log(torch.tensor((2.6, )))
 log_gamma = torch.log(torch.tensor((1 / 3.3,)))
+
+# mortality rate stuff dependent from Imperial paper
+age_categories = ['0-9', '10-19', '20-29', '30-39', '40-49', '50-59', '60-69', '70-79', '80+']
+us_ages_millions = [10.13+9.68+10.32+9.88, 10.66+10.22+10.77+10.32, 11.2+10.67+12.02+11.54, 11.19+10.94+10.79+10.77, 9.9+9.92+10.26+10.48, 10.28+10.61+10.67+11.27, 9.73+10.6+8.03+9.05, 6.21+7.19+4.14+5.12, 2.59+3.54+2.33+4.33]  # from https://www.statista.com/statistics/241488/population-of-the-us-by-sex-and-age/
+us_ages_proportions = [mil/sum(us_ages_millions) for mil in us_ages_millions]
+mortality_rates = [2e-5, 6e-5, 3e-4, 8e-4, 1.5e-3, 6e-3, 2.2e-2, 5.1e-2, 9.3e-2]
+icu_rates = [1e-3*5e-2, 3e-3*5e-2, 1.2e-2*5e-2, 3.2e-2*5e-2, 4.9*6.3e-4, 10.2*12.2e-4, 16.6*27.4e-4, 24.3*43.2e-4, 27.3*70.9e-4]
+covid_mortality_rate = sum(rate*prop for rate, prop in zip(mortality_rates, us_ages_proportions))
+# Imperial paper assumes 30 % ICU mortality rate (plus small non-ICU rate) - so if everyone in ICU dies due to lack of beds:
+untreated_extra_mortality_rate_per_age = [r*0.7 for r in icu_rates]
+untreated_extra_mortality_rate = sum(rate*prop for rate, prop in
+                                     zip(untreated_extra_mortality_rate_per_age, us_ages_proportions))
+
+# intensive care capacities:
+intensive_care_beds_per_infected = 0.044 * 0.3 * 10. / (1/log_gamma.exp())   # 4.4% hospitalised / infection * 30% ICU / hospitalised * 10 days in ICU / assumed infected time of 1/gamma  source: the Imperial paper
+intensive_care_capacity = 2.8e-3  # beds per population   https://data.oecd.org/healtheqt/hospital-beds.htm
+max_treatable = intensive_care_capacity / intensive_care_beds_per_infected
+
+log_kappa =     torch.log(covid_mortality_rate * log_gamma.exp())
+log_untreated_extra_kappa = torch.log(untreated_extra_mortality_rate * log_gamma.exp())
+log_max_treatable = torch.log(max_treatable)
 log_lambda = torch.log(torch.tensor((0.00116 / 365, )))  # US birth rate from https://tinyurl.com/sezkqxc
 log_mu = torch.log(torch.tensor((0.008678 / 365, )))     # non-covid death rate https://tinyurl.com/ybwdzmjs
 u = torch.tensor(0.)
-log_max_treatable = torch.log(torch.tensor((0.05)))  # TODO make this infection_threshold
-log_untreated_extra_kappa = torch.log(torch.tensor(0.))   # TODO set to eg log_kappa to double the death rate
 
 # Make sure we are controlling the right things.
 controlled_parameters = ['u']  # We can select u.
-uncontrolled_parameters = ['log_kappa', 'log_alpha', 'log_gamma', 'log_lambda', 'log_mu', 'log_r0', 'log_max_treatable', 'log_untreated_extra_kappa']
+uncontrolled_parameters = ['log_kappa', 'log_alpha', 'log_gamma', 'log_lambda',
+                           'log_mu', 'log_r0', 'log_max_treatable', 'log_untreated_extra_kappa']
 
 # Define the simulation properties.
 T = 200
@@ -51,7 +71,8 @@ dt = .1
 initial_population = 10000
 
 # Define the policy objectives.
-infection_threshold = torch.scalar_tensor(0.06)
+infection_threshold = log_max_treatable.exp().item()
+death_threshold = log_max_treatable.exp().item()
 
 # Define inference settings.
 N_simulation = 100
@@ -101,6 +122,15 @@ if __name__ == '__main__':
         plotting.make_trajectory_plot(axe[0], noised_parameters, None, results_noise, valid_simulations, t, 0, _plot_all=True)
         plotting.make_parameter_plot(axe[1], noised_parameters, valid_simulations)
         plt.savefig('./png/trajectory.png', dpi=500)
+        plt.close()
+
+    if experiment_peak_versus_deaths:
+
+        assert experiment_single_rollout  # we will reuse simulation
+
+        fig, axe = plt.subplots()
+        plotting.peak_infection_versus_deaths(axe, results_noise, params)
+        plt.savefig('./png/infected_deaths.pdf')
         plt.close()
 
     # DO SINGLE NMC EXPERIMENT -----------------------------------------------------------------------------------------

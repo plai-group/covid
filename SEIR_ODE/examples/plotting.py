@@ -82,6 +82,24 @@ def make_trajectory_plot(_axe, _params, _results_visited, _results_noise, _valid
     _axe.set_ylabel('Fraction of populace')
 
 
+def peak_infection_versus_deaths(_axe, _results, _params):
+
+    populace, s_n, e_n, i_n, r_n = get_statistics(_results)
+    initial_pop = populace[0]
+    final_pop = populace[-1]
+    death_proportion = (initial_pop - final_pop) / initial_pop
+    peak_infected = i_n.max(axis=0)
+
+    max_treatable = _params.log_max_treatable.exp().item()
+    _axe.scatter(peak_infected, death_proportion)
+    _axe.plot([max_treatable, max_treatable],
+              [0, death_proportion.max()],
+              color='k', ls='--')
+    _axe.set_xlabel('Peak number infected')
+    _axe.set_ylabel('Proportion of population dead')
+    _axe.set_xlim(0)
+    _axe.set_ylim(0)
+
 def make_parameter_plot(_axe, _new_parameters, _valid_simulations):
     """
     Plot the 1-D parameter histogram.

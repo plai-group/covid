@@ -21,7 +21,7 @@ def finite_capacity_death_rate(_state, _params):
     standard_rate = _params.log_kappa.exp()
     higher_rate = standard_rate + _params.log_untreated_extra_kappa.exp()
     is_too_many = (n_infected > max_treatable).type(_state.dtype)
-    proportion_treated = max_treatable/n_infected.clamp(min=max_treatable)
+    proportion_treated = max_treatable/torch.max(n_infected, max_treatable)
     too_many_rate = proportion_treated*standard_rate + \
         (1-proportion_treated)*higher_rate
     return is_too_many * too_many_rate + (1 - is_too_many) * standard_rate
@@ -31,7 +31,6 @@ def get_diff(_state, _params):
 
     _lambda =    torch.exp(_params.log_lambda)
     death_rate = finite_capacity_death_rate(_state, _params)
-    _kappa =     torch.exp(_params.log_kappa)
     _mu =        torch.exp(_params.log_mu)
     _u =                   _params.u
     _r0 =        torch.exp(_params.log_r0)
@@ -51,9 +50,9 @@ def get_diff(_state, _params):
     _d_s = _lambda*_n - s_to_e1 - _mu*_s
     _d_e1 = s_to_e1 - e1_to_e2 - _mu*_e1
     _d_e2 = e1_to_e2 - e2_to_i1 - _mu*_e2
-    _d_i1 = e2_to_i1 - i1_to_i2 - (_mu+_kappa)*_i1
-    _d_i2 = i1_to_i2 - i2_to_i3 - (_mu+_kappa)*_i2
-    _d_i3 = i2_to_i3 - i3_to_r - (_mu+_kappa)*_i3
+    _d_i1 = e2_to_i1 - i1_to_i2 - (_mu+death_rate)*_i1
+    _d_i2 = i1_to_i2 - i2_to_i3 - (_mu+death_rate)*_i2
+    _d_i3 = i2_to_i3 - i3_to_r - (_mu+death_rate)*_i3
     _d_r = i3_to_r - _mu*_r
 
     return torch.stack((_d_s, _d_e1, _d_e2, _d_i1, _d_i2, _d_i3, _d_r), dim=1)
