@@ -87,7 +87,7 @@ def init(config, seed):
         tar_file_path = Path(args.out_level_1) / args.out_level_2 / f'{args.out_level_3}.tar.gz'
         if not args.debug:
             assert not tar_file_path.exists()
-        tar_file_path.parent.mkdir(parents=True, exists_ok=True)
+        tar_file_path.parent.mkdir(parents=True, exist_ok=True)
         args.tar_file_path = str(tar_file_path)
 
     out_dir.mkdir(parents=True, exist_ok=args.debug)
