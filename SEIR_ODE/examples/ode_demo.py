@@ -38,10 +38,12 @@ log_gamma = torch.log(torch.tensor((1 / 3.3,)))
 log_lambda = torch.log(torch.tensor((0.00116 / 365, )))  # US birth rate from https://tinyurl.com/sezkqxc
 log_mu = torch.log(torch.tensor((0.008678 / 365, )))     # non-covid death rate https://tinyurl.com/ybwdzmjs
 u = torch.tensor(0.)
+log_max_treatable = torch.log(torch.tensor((0.05)))  # TODO make this infection_threshold
+log_untreated_extra_kappa = torch.log(torch.tensor(0.))   # TODO set to eg log_kappa to double the death rate
 
 # Make sure we are controlling the right things.
-controlled_parameters = ['log_u']  # We can select u.
-uncontrolled_parameters = ['log_kappa', 'log_alpha', 'log_gamma', 'log_lambda', 'log_mu', 'log_r0']
+controlled_parameters = ['u']  # We can select u.
+uncontrolled_parameters = ['log_kappa', 'log_alpha', 'log_gamma', 'log_lambda', 'log_mu', 'log_r0', 'log_max_treatable', 'log_untreated_extra_kappa']
 
 # Define the simulation properties.
 T = 200
@@ -49,7 +51,7 @@ dt = .1
 initial_population = 10000
 
 # Define the policy objectives.
-infection_threshold = torch.scalar_tensor(0.1)
+infection_threshold = torch.scalar_tensor(0.06)
 
 # Define inference settings.
 N_simulation = 100
@@ -61,6 +63,8 @@ params = SimpleNamespace(**{'log_alpha': log_alpha,
                             'log_gamma': log_gamma,
                             'log_mu': log_mu,
                             'log_kappa': log_kappa,
+                            'log_max_treatable': log_max_treatable,
+                            'log_untreated_extra_kappa': log_untreated_extra_kappa,
                             'log_lambda': log_lambda,
                             'u': u,
                             'controlled_parameters': controlled_parameters,
