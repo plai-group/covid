@@ -27,5 +27,5 @@ if [ -z $SLURM_ARRAY_TASK_ID ]
 then
     singularity exec -B $SCRATCH $SINGULARITY_IMAGE_PATH python $args level_2=${exp_name}
 else
-    singularity exec -B $SCRATCH $SINGULARITY_IMAGE_PATH python $args level_2=${exp_name} level_3=${SLURM_ARRAY_TASK_ID}
+    singularity exec -B $SCRATCH $SINGULARITY_IMAGE_PATH python $args level_2=${exp_name} level_3=sim${SLURM_ARRAY_TASK_ID}
 fi
