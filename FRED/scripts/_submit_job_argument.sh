@@ -25,7 +25,7 @@ echo '# hostname = '`hostname`
 
 if [ -z $SLURM_ARRAY_TASK_ID ]
 then
-    singularity run -B $SCRATCH -B $SLURM_TMPDIR -B $PWD:/workdir $SINGULARITY_IMAGE_PATH python $args out_level_2=${exp_name} tmp_directory=${SLURM_TMPDIR}
+    singularity run -B $SCRATCH -B $SLURM_TMPDIR -B ${root_dir}:/workdir $SINGULARITY_IMAGE_PATH python $args out_level_2=${exp_name} tmp_directory=${SLURM_TMPDIR}
 else
-    singularity run -B $SCRATCH $SINGULARITY_IMAGE_PATH python $args out_level_2=${exp_name} out_level_3=sim${SLURM_ARRAY_TASK_ID} tmp_directory=${SLURM_TMPDIR}
+    singularity run -B $SCRATCH -B $SLURM_TMPDIR -B ${root_dir}:/workdir $SINGULARITY_IMAGE_PATH python $args out_level_2=${exp_name} out_level_3=sim${SLURM_ARRAY_TASK_ID} tmp_directory=${SLURM_TMPDIR}
 fi
