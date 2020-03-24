@@ -133,13 +133,20 @@ def sample_prior_parameters(_params, _n=None, get_map=False):
 
     # code from https://alhill.shinyapps.io/COVID19seir/
     IncubPeriod = _sample_from_confidence_interval(4.5, 5.1, 5.8)
-    DurMildInf = _sample_from_confidence_interval(5.5, 6., 6.5)
+    DurMildInf_nominal = 6.
+    DurMildInf = _sample_from_confidence_interval(5.5, DurMildInf_nominal, 6.5)
     FracMild = 0.81
     FracSevere = 0.14
     FracCritical = 0.05
     CFR = 0.02
-    DurHosp = _sample_from_confidence_interval(8.7, 11.2, 14.9)  # https://arxiv.org/pdf/2002.03268.pdf
-    TimeICUDeath = 7.
+    DurHosp_nominal = 10.5 - DurMildInf_nominal
+    DurHosp = _sample_from_confidence_interval(10. - DurMildInf_nominal,
+                                               DurHosp_nominal,
+                                               11. - DurMildInf_nominal)
+    TimeICUDeath_nominal = 11.2 - DurHosp_nominal
+    TimeICUDeath = _sample_from_confidence_interval(8.7 - DurHosp_nominal,
+                                                    TimeICUDeath_nominal,
+                                                    14.9 - DurHosp_nominal)  # https://arxiv.org/pdf/2002.03268.pdf
 
     a=1/IncubPeriod
     g1=(1/DurMildInf)*FracMild
