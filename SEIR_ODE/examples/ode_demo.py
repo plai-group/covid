@@ -17,7 +17,7 @@ import examples.seir as seir
 import examples.plotting as plotting
 
 # Import custom istarmap.
-import examples.istarmap
+# import examples.istarmap
 
 # Fix the type of the state tensors.
 float_type = seir.float_type
@@ -36,10 +36,10 @@ plt.rc('text.latex', preamble='\\usepackage{amsmath,amssymb}')
 # Experiments to run.
 experiment_do_single_sim = False
 experiment_single_rollout = False
-experiment_peak_versus_deaths = False
-experiment_nmc_example = True
-experiment_stoch_vs_det = True
-experiment_mpc_example = True
+experiment_icu_capacity = True
+experiment_nmc_example = False
+experiment_stoch_vs_det = False
+experiment_mpc_example = False
 
 # Define base parameters of SEIR model.
 log_alpha = torch.log(torch.tensor((1 / 5.1, )))
@@ -63,7 +63,7 @@ untreated_extra_mortality_rate = sum(rate*prop for rate, prop in
 # Make sure we are controlling the right things.
 controlled_parameters = ['u']  # We can select u.
 uncontrolled_parameters = ['log_kappa', 'log_a', 'log_p1', 'log_p2', 'log_p1',
-                           'log_p2', 'log_g1', 'log_g2', 'log_g3']
+                           'log_p2', 'log_g1', 'log_g2', 'log_g3', 'log_icu_capacity']
 
 # Define the simulation properties.
 T = 500
@@ -151,6 +151,41 @@ if __name__ == '__main__':
         plt.pause(0.1)
         plt.close('all')
 
+    # ICU CAPACITY EXPERIMENT ------------------------------------------------------------------------------------------
+
+    if experiment_icu_capacity:
+
+        fig, axe = plt.subplots()
+        K = 100
+        for capacity_name in ['zero', 'nominal', 'infinite']:
+
+            initial_state = seir.sample_x0(K, initial_population)
+            params_controlled = seir.sample_prior_parameters(params, K, get_map=True)
+            params_controlled.u = torch.linspace(0, 1, K)
+            capacity = {
+                'zero': params_controlled.log_icu_capacity - float('inf'),
+                'nominal': params_controlled.log_icu_capacity,
+                'infinite': params_controlled.log_icu_capacity + float('inf'),
+            }[capacity_name]
+            params_controlled.log_icu_capacity = capacity
+            results_deterministic = seir.simulate_seir(initial_state, params_controlled, dt,
+                                                       T, seir.sample_identity_parameters)
+            plotting.peak_infection_versus_deaths(
+                axe, results_deterministic,
+                params_controlled, label=f'{capacity_name} ICU capacity')
+
+            print(capacity_name)
+            print(f'All: {results_deterministic[:, :].sum(dim=-1).mean()}')
+            print(f'Max critical: {results_deterministic[:, :, 4].max(dim=0)[0].mean()}')
+            print(f'Number dead: {results_deterministic[-1, :, -1].mean()}')
+
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig('./png/infected_deaths.png')
+        plt.savefig('./pdf/infected_deaths.pdf')
+        plt.close('all')
+
+
     # DO SINGLE NMC EXPERIMENT -----------------------------------------------------------------------------------------
 
     if experiment_nmc_example:
@@ -236,7 +271,7 @@ if __name__ == '__main__':
         controlled_params.u = u_sweep
         pool = proc.Pool(processes=proc.cpu_count())
         valid_simulations_stochastic, _, _ = \
-            seir.parallel_nmc_estimate(pool, current_state, params, time_now, controlled_parameter_values, valid_simulation)
+        seir.parallel_nmc_estimate(pool, current_state, params, time_now, controlled_parameter_values, valid_simulation)
         pool.close()
 
         # Analyse the results.
@@ -308,7 +343,7 @@ if __name__ == '__main__':
 
             # Run simulation.
             outer_samples['p_valid'], outer_samples['results_noise'], outer_samples['valid_simulations'] = \
-                _parallel_nmc_estimate(pool, current_state, params, _t * params.dt, controlled_parameter_values)
+                seir._parallel_nmc_estimate(pool, current_state, params, _t * params.dt, controlled_parameter_values, _valid_simulation=valid_simulation)
 
             # Work out which simulations are probabilistically valid.
             threshold = 0.9

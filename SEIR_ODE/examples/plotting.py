@@ -128,7 +128,7 @@ def make_trajectory_plot(_axe, _params, _results_visited, _results_noise, _valid
             _axe.set_ylim(_ylim)
 
 
-def peak_infection_versus_deaths(_results, _params, _append=''):
+def peak_infection_versus_deaths(_results, _params, label=None, _append=''):
     _fig, _axe = plt.subplots()
 
     try:
@@ -145,7 +145,7 @@ def peak_infection_versus_deaths(_results, _params, _append=''):
     # max_treatable = _params.log_max_treatable.exp().item()
     # _axe.scatter(peak_infected, death_proportion)
     #_axe.plot(max_treatable, max_treatable],
-    _axe.scatter(peak_infected, death_proportion, color='k')
+    _axe.scatter(peak_infected, death_proportion, label=label)
     _axe.set_xlabel('Peak number infected')
     _axe.set_ylabel('Proportion of population dead')
     _axe.set_xlim(0)
@@ -231,8 +231,6 @@ def do_family_of_plots(noised_parameters, results_noise, valid_simulations, t, _
     plt.tight_layout()
     # plt.savefig('./png/{}/{}trajectory_full_valid{}.png'.format(_prepend, _prepend, _num), dpi=dpi)
     plt.savefig('./pdf/{}/{}trajectory_full_valid{}.pdf'.format(_prepend, _prepend, _num))
-
-    # TODO - there is something wrong with plotting the valids.
 
     plt.figure(figsize=fig_size_short)
     make_trajectory_plot(plt.gca(), noised_parameters, _visited_states, results_noise, valid_simulations, t, _plot_valid=True, _ylim=_zoom_lims)
