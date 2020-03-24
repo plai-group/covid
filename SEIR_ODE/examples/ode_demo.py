@@ -34,12 +34,12 @@ plt.rc('text.latex', preamble='\\usepackage{amsmath,amssymb}')
 # CONFIGURE SIMULATION ---------------------------------------------------------------------------------------------
 
 # Experiments to run.
-experiment_do_single_sim = False
-experiment_single_rollout = False
-experiment_icu_capacity = True
-experiment_nmc_example = False
-experiment_stoch_vs_det = False
-experiment_mpc_example = False
+experiment_do_single_sim =  True
+experiment_single_rollout = True
+experiment_icu_capacity =   True
+experiment_nmc_example =    True
+experiment_stoch_vs_det =   True
+experiment_mpc_example =    True
 
 # Define base parameters of SEIR model.
 log_alpha = torch.log(torch.tensor((1 / 5.1, )))
@@ -71,7 +71,7 @@ dt = 1.0
 initial_population = 10000
 
 # Define inference settings.
-N_simulation = 123
+N_simulation = 12#3
 N_parameter_sweep = 101
 
 plotting._sims_to_plot = np.random.randint(0, N_simulation, plotting.n_sims_to_plot)
@@ -145,7 +145,8 @@ if __name__ == '__main__':
         plotting.do_family_of_plots(noised_parameters, results_noise, valid_simulations, t, _prepend='simulation_', _num='')
         plt.close('all')
 
-        plotting.peak_infection_versus_deaths(results_noise, params, _append='simulation_')
+        fig, axe = plt.subplots()
+        plotting.peak_infection_versus_deaths(axe, results_noise, params, _append='simulation_')
 
         plt.pause(0.1)
         plt.close('all')
@@ -169,19 +170,13 @@ if __name__ == '__main__':
             params_controlled.log_icu_capacity = capacity
             results_deterministic = seir.simulate_seir(initial_state, params_controlled, dt,
                                                        T, seir.sample_identity_parameters)
-            plotting.peak_infection_versus_deaths(
-                axe, results_deterministic,
-                params_controlled, label=f'{capacity_name} ICU capacity')
+            plotting.peak_infection_versus_deaths(axe, results_deterministic, params_controlled, label=f'{capacity_name} ICU capacity')
 
             print(capacity_name)
             print(f'All: {results_deterministic[:, :].sum(dim=-1).mean()}')
             print(f'Max critical: {results_deterministic[:, :, 4].max(dim=0)[0].mean()}')
             print(f'Number dead: {results_deterministic[-1, :, -1].mean()}')
 
-        plt.legend()
-        plt.tight_layout()
-        plt.savefig('./png/infected_deaths.png')
-        plt.savefig('./pdf/infected_deaths.pdf')
         plt.close('all')
 
 
@@ -342,7 +337,7 @@ if __name__ == '__main__':
 
             # Run simulation.
             outer_samples['p_valid'], outer_samples['results_noise'], outer_samples['valid_simulations'] = \
-                seir._parallel_nmc_estimate(pool, current_state, params, _t * params.dt, controlled_parameter_values, _valid_simulation=valid_simulation)
+                seir.parallel_nmc_estimate(pool, current_state, params, _t * params.dt, controlled_parameter_values, _valid_simulation=valid_simulation)
 
             # Work out which simulations are probabilistically valid.
             threshold = 0.9
