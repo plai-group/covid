@@ -122,7 +122,8 @@ def make_trajectory_plot(_axe, _params, _results_visited, _results_noise, _valid
             _axe.set_ylim(_ylim)
 
 
-def peak_infection_versus_deaths(_axe, _results, _params):
+def peak_infection_versus_deaths(_results, _params):
+    _fig, _axe = plt.subplots()
 
     populace, s_n, e_n, i_n, r_n = get_statistics(_results)
     initial_pop = populace[0]
@@ -132,13 +133,15 @@ def peak_infection_versus_deaths(_axe, _results, _params):
 
     # max_treatable = _params.log_max_treatable.exp().item()
     # _axe.scatter(peak_infected, death_proportion)
-    # _axe.plot([max_treatable, max_treatable],
-    #           [0, death_proportion.max()],
-    #           color='k', ls='--')
+    #_axe.plot(max_treatable, max_treatable],
+    _axe.scatter(peak_infected, death_proportion, color='k', ls='--')
     _axe.set_xlabel('Peak number infected')
     _axe.set_ylabel('Proportion of population dead')
     _axe.set_xlim(0)
     _axe.set_ylim(0)
+    plt.savefig('./png/infected_deaths.png')
+    plt.savefig('./pdf/infected_deaths.pdf')
+
 
 def make_parameter_plot(_axe, _new_parameters, _valid_simulations):
     """

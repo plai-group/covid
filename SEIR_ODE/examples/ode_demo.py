@@ -175,7 +175,7 @@ initial_population = 10000
 infection_threshold = torch.tensor(0.15)  # log_max_treatable.exp().item()
 
 # Define inference settings.
-N_simulation = 100
+N_simulation = 123
 N_parameter_sweep = 101
 
 plotting._sims_to_plot = np.random.randint(0, N_simulation, plotting.n_sims_to_plot)
@@ -223,14 +223,12 @@ if __name__ == '__main__':
         plotting.do_family_of_plots(noised_parameters, results_noise, valid_simulations, t, _prepend='simulation_', _num='')
         plt.close('all')
 
-    if experiment_peak_versus_deaths:
+        if experiment_peak_versus_deaths:
+            plotting.peak_infection_versus_deaths(results_noise, params)
 
-        assert experiment_single_rollout  # we will reuse simulation
-
-        fig, axe = plt.subplots()
-        plotting.peak_infection_versus_deaths(axe, results_noise, params)
-        plt.savefig('./png/infected_deaths.pdf')
-        plt.close()
+        plt.pause(0.1)
+        plt.close('all')
+        raise NotImplementedError
 
     # DO SINGLE NMC EXPERIMENT -----------------------------------------------------------------------------------------
 
