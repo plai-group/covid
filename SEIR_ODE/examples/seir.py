@@ -237,3 +237,42 @@ def policy_tradeoff(_params):
     typical_beta = typical_u / typical_alpha
 
     return alpha, beta, typical_u, typical_alpha, typical_beta
+
+def _nmc_estimate(_current_state, _params, _controlled_parameters, _time_now,_valid_simulation,
+                  _proposal=sample_unknown_parameters):
+    """
+    AW - _nmc_estimate - calculate the probability that the specified parameters will
+    :param _current_state:          state to condition on.
+    :param _params:                 need to pass in the params dictionary to make sure the prior has the right shape
+    :param _controlled_parameters:  dictionary of parameters to condition on.
+    :param _time_now:               reduce the length of the sim.
+    :return:
+    """
+    # Draw the parameters we wish to marginalize over.
+    if _proposal != sample_identity_parameters:
+        _new_parameters = sample_prior_parameters(_params, len(_current_state))
+    else:
+        _new_parameters = sample_prior_parameters(_params, len(_current_state), get_map=True)
+
+    # Overwrite with the specified parameter value.
+    _new_parameters.u[:] = _controlled_parameters['u']
+
+    # Run the simulation with the controlled parameters, marginalizing over the others.
+    _results_noised = simulate_seir(_current_state, _new_parameters, _params.dt, _params.T - _time_now, _proposal)
+    _valid_simulations = _valid_simulation(_results_noised, _new_parameters)
+    _p_valid = _valid_simulations.type(torch.float).mean()
+    return _p_valid, _results_noised, _valid_simulations
+
+
+def _parallel_nmc_estimate(_pool, _current_state, _params, _time_now, _controlled_parameter_values, _valid_simulation):
+    # Create args dictionary.
+    _args = [(_current_state, _params, _c, _time_now, _valid_simulation) for _c in _controlled_parameter_values]
+
+    # Do the sweep
+    _results = _pool.starmap(_nmc_estimate, _args)
+
+    # Pull out the results for plotting.
+    _p_valid = [_r[0] for _r in _results]
+    _results_noise = [_r[1] for _r in _results]
+    _valid_simulations = [_r[2] for _r in _results]
+    return _p_valid, _results_noise, _valid_simulations
