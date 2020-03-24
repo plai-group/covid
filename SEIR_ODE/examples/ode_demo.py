@@ -34,12 +34,12 @@ plt.rc('text.latex', preamble='\\usepackage{amsmath,amssymb}')
 # CONFIGURE SIMULATION ---------------------------------------------------------------------------------------------
 
 # Experiments to run.
-experiment_do_single_sim = False
+experiment_do_single_sim = True
 experiment_single_rollout = False
 experiment_peak_versus_deaths = False
 experiment_nmc_example = False
 experiment_stoch_vs_det = False
-experiment_mpc_example = True
+experiment_mpc_example = False
 
 # Define base parameters of SEIR model.
 log_alpha = torch.log(torch.tensor((1 / 5.1, )))
@@ -173,9 +173,6 @@ T = 500
 dt = 1.0
 initial_population = 10000
 
-# Define the policy objectives.
-infection_threshold = torch.tensor(0.15)  # log_max_treatable.exp().item()
-
 # Define inference settings.
 N_simulation = 30
 N_parameter_sweep = 101
@@ -186,7 +183,7 @@ plotting._sims_to_plot = np.random.randint(0, N_simulation, plotting.n_sims_to_p
 t = torch.linspace(0, T, int(T / dt) + 1)
 
 params = seir.sample_prior_parameters(SimpleNamespace(), _n=1, get_map=True)
-params.policy = {'infection_threshold': torch.tensor((0.05,))}
+params.policy = {'infection_threshold': torch.tensor(0.0145)}
 params.controlled_parameters = controlled_parameters
 params.uncontrolled_parameters = uncontrolled_parameters
 params.dt = dt
@@ -215,23 +212,23 @@ if __name__ == '__main__':
     # DO DETERMINISTIC SIMULATION PLOT ---------------------------------------------------------------------------------
 
     if experiment_do_single_sim:
+
+        # Do single determinstic trajectories. ----------------------
         initial_state = seir.sample_x0(1, initial_population)
-        results_deterministic = seir.simulate_seir(initial_state, params, dt, T, seir.sample_identity_parameters)
+        params_nominal = seir.sample_prior_parameters(params, 1, get_map=True)
+
+        results_deterministic = seir.simulate_seir(initial_state, params_nominal, dt, T, seir.sample_identity_parameters)
+        valid_simulations = valid_simulation(results_deterministic, params_nominal)
+        plotting.det_plot(results_deterministic, valid_simulations, params_nominal, t, _append='nominal', _legend=True)
+
+        # Do single plot with controls. -----------------------------
+        initial_state = seir.sample_x0(1, initial_population)
+        params_controlled = seir.sample_prior_parameters(params, 1, get_map=True)
+        params_controlled.u = 0.38
+
+        results_deterministic = seir.simulate_seir(initial_state, params_controlled, dt, T, seir.sample_identity_parameters)
         valid_simulations = valid_simulation(results_deterministic, params)
-
-        plotting._sims_to_plot = np.arange(np.alen(valid_simulations))
-        # plotting.do_family_of_plots(params, results_deterministic, valid_simulations, t, _prepend='single_', _num='')
-        plt.figure(figsize=plotting.fig_size_short)
-        plotting.make_trajectory_plot(plt.gca(), params, None, results_deterministic, valid_simulations, t, _plot_valid="full")
-        plt.tight_layout()
-        plt.savefig('./png/deterministic_trajectory_full.png'.format(), dpi=plotting.dpi)
-        plt.savefig('./pdf/deterministic_trajectory_full.pdf'.format())
-
-        plt.figure(figsize=plotting.fig_size_short)
-        plotting.make_trajectory_plot(plt.gca(), params, None, results_deterministic, valid_simulations, t, _plot_valid="full", _ylim=(0.0, 0.2))
-        plt.tight_layout()
-        plt.savefig('./png/deterministic_trajectory_zoom.png'.format(), dpi=plotting.dpi)
-        plt.savefig('./pdf/deterministic_trajectory_zoom.pdf'.format())
+        plotting.det_plot(results_deterministic, valid_simulations, params_controlled, t, _append='controlled')
 
         plt.close('all')
 
@@ -241,7 +238,7 @@ if __name__ == '__main__':
 
         initial_state = seir.sample_x0(N_simulation, initial_population)
         noised_parameters = seir.sample_prior_parameters(params, N_simulation)
-        results_noise = seir.simulate_seir(initial_state, noised_parameters, dt, T, seir.sample_unknown_parameters)  # noise_parameters to use gil.
+        results_noise = seir.simulate_seir(initial_state, noised_parameters, dt, T, seir.sample_unknown_parameters)
         valid_simulations = valid_simulation(results_noise, noised_parameters)
 
         plotting._sims_to_plot = np.arange(np.alen(valid_simulations))
@@ -255,46 +252,6 @@ if __name__ == '__main__':
         plt.close('all')
 
     # DO SINGLE NMC EXPERIMENT -----------------------------------------------------------------------------------------
-
-
-    def _nmc_estimate(_current_state, _params, _controlled_parameters, _time_now, _proposal=seir.sample_unknown_parameters):
-        """
-        AW - _nmc_estimate - calculate the probability that the specified parameters will
-        :param _current_state:          state to condition on.
-        :param _params:                 need to pass in the params dictionary to make sure the prior has the right shape
-        :param _controlled_parameters:  dictionary of parameters to condition on.
-        :param _time_now:               reduce the length of the sim.
-        :return:
-        """
-        # Draw the parameters we wish to marginalize over.
-        if _proposal != seir.sample_identity_parameters:
-            _new_parameters = seir.sample_prior_parameters(_params, len(_current_state))
-        else:
-            _new_parameters = seir.sample_prior_parameters(_params, len(_current_state), get_map=True)
-
-        # Overwrite with the specified parameter value.
-        _new_parameters.u[:] = _controlled_parameters['u']
-
-        # Run the simulation with the controlled parameters, marginalizing over the others.
-        _results_noised = seir.simulate_seir(_current_state, _new_parameters, _params.dt, _params.T - _time_now, _proposal)
-        _valid_simulations = valid_simulation(_results_noised, _new_parameters)
-        _p_valid = _valid_simulations.type(torch.float).mean()
-        return _p_valid, _results_noised, _valid_simulations
-
-
-    def _parallel_nmc_estimate(_pool, _current_state, _params, _time_now, _controlled_parameter_values):
-        # Create args dictionary.
-        _args = [(_current_state, _params, _c, _time_now) for _c in _controlled_parameter_values]
-
-        # Do the sweep
-        _results = _pool.starmap(_nmc_estimate, _args)
-
-        # Pull out the results for plotting.
-        _p_valid = [_r[0] for _r in _results]
-        _results_noise = [_r[1] for _r in _results]
-        _valid_simulations = [_r[2] for _r in _results]
-        return _p_valid, _results_noise, _valid_simulations
-
 
     if experiment_nmc_example:
 
