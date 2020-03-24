@@ -60,7 +60,9 @@ initial_population = 10000
 infection_threshold = torch.scalar_tensor(0.014)
 
 # Define inference settings.
-N_simulation = 11
+N_simulation = 100
+N_parameter_sweep = 101
+
 plotting._sims_to_plot = np.random.randint(0, N_simulation, plotting.n_sims_to_plot)
 
 # Automatically define other required variables.
@@ -222,8 +224,7 @@ if __name__ == '__main__':
 
         for _t in range(1):  # tqdm(np.arange(0, int(T / dt), step=planning_step)):
 
-            n_sweep = 30
-            u_sweep = torch.linspace(0, 1, n_sweep)
+            u_sweep = torch.linspace(0, 1, N_parameter_sweep)
             outer_samples = {'u': u_sweep,
                              'p_valid': [],
                              'results_noise': [],
@@ -258,31 +259,35 @@ if __name__ == '__main__':
 
             # Do plotting.
             do_plot = True
+            _title = 't={} / {} days'.format(int(_t) / planning_step, T)
             if do_plot:
                 _plot_frequency = 10  # Have to plot at the frequency of planning right now.
-                _title = 't={} / {} days'.format(int(_t) / planning_step, T)
                 if _t % _plot_frequency == 0:
 
                     # Trajectory plot.
                     plotting.do_family_of_plots(controlled_params, expect_results_noised, prob_valid_simulations, t,
                                                 _visited_states=visited_states,
-                                                _prepend='mpc_', _title=_title, _num='_{:05d}'.format(img_frame))
+                                                _prepend='mpc_', _title=None, _num='_{:05d}'.format(img_frame))
                     plt.close('all')
                     plt.pause(0.1)
+
+                    _do_controled_plot = True
+                    if _do_controled_plot:
+                        # Run simulation with the chosen control.
+                        controlled_parameter_values = dc({'u': torch.tensor([outer_samples['u'][first_valid_simulation]])})
+                        controlled_params = dc(params)
+                        controlled_params.u = controlled_parameter_values['u'][:] * torch.ones((N_simulation, ))
+
+                        p_valid, results_noise, valid_simulations = \
+                            _nmc_estimate(current_state, params, controlled_parameter_values, _t * params.dt)
+
+                        plotting.do_family_of_plots(controlled_params, results_noise, torch.ones((N_simulation, )), t,
+                                                    _visited_states=visited_states,
+                                                    _prepend='mpc_', _title=None, _num='_controlled_{:05d}'.format(img_frame))
+
                     img_frame += 1
 
-                # Run simulation with the chosen control.
-                controlled_parameter_values = dc({'u': torch.tensor([outer_samples['u'][first_valid_simulation]])})
-                controlled_params = dc(params)
-                controlled_params.u = controlled_parameter_values['u'][:] * torch.ones((N_simulation, ))
-
-                p_valid, results_noise, valid_simulations = \
-                    _nmc_estimate(current_state, params, controlled_parameter_values, _t * params.dt)
-
-                plotting.do_family_of_plots(controlled_params, results_noise, torch.ones((N_simulation, )), t,
-                                            _visited_states=visited_states,
-                                            _prepend='mpc_', _title=_title, _num='_controlled_{:05d}'.format(img_frame))
-                plt.pause(0.1)
+                    plt.pause(0.1)
 
 
         os.system(ffmpeg_command)

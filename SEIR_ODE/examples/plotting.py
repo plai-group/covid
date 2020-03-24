@@ -30,6 +30,7 @@ mcd = muted_colours_dict
 # Real misc shit.
 fig_size_wide = (12, 3)
 fig_size_small = (4, 4)
+fig_size_short = (4, 2)
 dpi=100
 
 
@@ -184,7 +185,7 @@ def make_policy_plot(_axe, _params, _alpha, _beta, _valid_simulations, _typical_
 def do_family_of_plots(noised_parameters, results_noise, valid_simulations, t, _prepend, _visited_states=None, _t_now=0, _title=None, _num=None):
     alpha, beta, typical_u, typical_alpha, typical_beta = seir.policy_tradeoff(noised_parameters)
 
-    plt.figure(figsize=fig_size_small)
+    plt.figure(figsize=fig_size_short)
     make_trajectory_plot(plt.gca(), noised_parameters, _visited_states, results_noise, valid_simulations, t, _plot_valid=True)
     if _title is not None:
         plt.title(_title)
@@ -192,7 +193,7 @@ def do_family_of_plots(noised_parameters, results_noise, valid_simulations, t, _
     plt.savefig('./png/{}trajectory_full_valid{}.png'.format(_prepend, _num), dpi=dpi)
     plt.savefig('./pdf/{}trajectory_full_valid{}.pdf'.format(_prepend, _num))
 
-    plt.figure(figsize=fig_size_small)
+    plt.figure(figsize=fig_size_short)
     make_trajectory_plot(plt.gca(), noised_parameters, _visited_states, results_noise, valid_simulations, t, _plot_valid=True, _ylim=(0.0, 0.2))
     if _title is not None:
         plt.title(_title)
@@ -200,7 +201,7 @@ def do_family_of_plots(noised_parameters, results_noise, valid_simulations, t, _
     plt.savefig('./png/{}trajectory_zoom_valid{}.png'.format(_prepend, _num), dpi=dpi)
     plt.savefig('./pdf/{}trajectory_zoom_valid{}.pdf'.format(_prepend, _num))
 
-    plt.figure(figsize=fig_size_small)
+    plt.figure(figsize=fig_size_short)
     make_trajectory_plot(plt.gca(), noised_parameters, _visited_states, results_noise, valid_simulations, t, _plot_valid=None)
     if _title is not None:
         plt.title(_title)
@@ -208,7 +209,7 @@ def do_family_of_plots(noised_parameters, results_noise, valid_simulations, t, _
     plt.savefig('./png/{}trajectory_full_all{}.png'.format(_prepend, _num), dpi=dpi)
     plt.savefig('./pdf/{}trajectory_full_all{}.pdf'.format(_prepend, _num))
 
-    plt.figure(figsize=fig_size_small)
+    plt.figure(figsize=fig_size_short)
     make_trajectory_plot(plt.gca(), noised_parameters, _visited_states, results_noise, valid_simulations, t, _plot_valid=None, _ylim=(0.0, 0.2))
     if _title is not None:
         plt.title(_title)
@@ -216,7 +217,7 @@ def do_family_of_plots(noised_parameters, results_noise, valid_simulations, t, _
     plt.savefig('./png/{}trajectory_zoom_all{}.png'.format(_prepend, _num), dpi=dpi)
     plt.savefig('./pdf/{}trajectory_zoom_all{}.pdf'.format(_prepend, _num))
 
-    plt.figure(figsize=fig_size_small)
+    plt.figure(figsize=fig_size_short)
     make_parameter_plot(plt.gca(), noised_parameters, valid_simulations)
     if _title is not None:
         plt.title(_title)
