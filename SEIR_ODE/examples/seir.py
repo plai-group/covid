@@ -9,54 +9,60 @@ float_type = torch.float64
 DYNAMIC_NORMALIZATION = False
 
 
-def simple_death_rate(_state, _params):
+# def simple_death_rate(_state, _params):
 
-    return _params.log_kappa.exp()
+#     return _params.log_kappa.exp()
 
 
-def finite_capacity_death_rate(_state, _params):
+# def finite_capacity_death_rate(_state, _params):
 
-    n_infected = _state[:, 3:6].sum(dim=1)
+#     n_infected = _state[:, 3:6].sum(dim=1)
 
-    max_treatable = _params.log_max_treatable.exp()
-    standard_rate = _params.log_kappa.exp()
+#     max_treatable = _params.log_max_treatable.exp()
+#     standard_rate = _params.log_kappa.exp()
 
-    higher_rate = standard_rate + _params.log_untreated_extra_kappa.exp()
-    is_too_many = (n_infected > max_treatable).type(_state.dtype)
-    proportion_treated = max_treatable/torch.max(n_infected, max_treatable)
-    too_many_rate = proportion_treated*standard_rate + (1-proportion_treated)*higher_rate
-    return is_too_many * too_many_rate + (1 - is_too_many) * standard_rate
+#     higher_rate = standard_rate + _params.log_untreated_extra_kappa.exp()
+#     is_too_many = (n_infected > max_treatable).type(_state.dtype)
+#     proportion_treated = max_treatable/torch.max(n_infected, max_treatable)
+#     too_many_rate = proportion_treated*standard_rate + (1-proportion_treated)*higher_rate
+#     return is_too_many * too_many_rate + (1 - is_too_many) * standard_rate
 
 
 def get_diff(_state, _params):
 
-    _lambda =    torch.exp(_params.log_lambda)
-    _death_rate = finite_capacity_death_rate(_state, _params)
-    _mu =        torch.exp(_params.log_mu)
-    _u =                   _params.u
-    _r0 =        torch.exp(_params.log_r0)
-    _gamma =     torch.exp(_params.log_gamma)
-    _alpha =     torch.exp(_params.log_alpha)
+    a = torch.exp(_params.log_a)
+    b1 = torch.exp(_params.log_b1)
+    b2 = torch.exp(_params.log_b2)
+    b3 = torch.exp(_params.log_b3)
+    g1 = torch.exp(_params.log_g1)
+    g2 = torch.exp(_params.log_g2)
+    g3 = torch.exp(_params.log_g3)
+    p1 = torch.exp(_params.log_p1)
+    p2 = torch.exp(_params.log_p2)
+    kappa = torch.exp(_params.log_kappa)
+    u = _params.u
 
-    _s, _e1, _e2, _i1, _i2, _i3, _r = tuple(_state[:, i] for i in range(_state.shape[1]))
+    _s, _e, _i1, _i2, _i3, _r, _d = tuple(_state[:, i] for i in range(_state.shape[1]))
     _n = _state.sum(dim=1)
 
-    s_to_e1 = ((1 - _u) * _r0 * _gamma * _s * (_i1 + _i2 + _i3) / _n).type(float_type)
-    e1_to_e2 = (2*_alpha*_e1).type(float_type)
-    e2_to_i1 = (2*_alpha*_e2).type(float_type)
-    i1_to_i2 = (3*_gamma*_i1).type(float_type)
-    i2_to_i3 = (3*_gamma*_i2).type(float_type)
-    i3_to_r = (3*_gamma*_i3).type(float_type)
+    s_to_e = (1-u) * (b1*_i1 + b2*_i2 + b3*_i3)/_n*_s
+    e_to_i1 = a*_e
+    i1_to_r = g1*_i1
+    i1_to_i2 = p1*_i1
+    i2_to_r = g2*_i2
+    i2_to_i3 = p2*_i2
+    i3_to_r = g3*_i3
+    i3_to_d = kappa*_i3
 
-    _d_s = _lambda*_n - s_to_e1 - _mu*_s
-    _d_e1 = s_to_e1 - e1_to_e2 - _mu*_e1
-    _d_e2 = e1_to_e2 - e2_to_i1 - _mu*_e2
-    _d_i1 = e2_to_i1 - i1_to_i2 - (_mu+_death_rate)*_i1
-    _d_i2 = i1_to_i2 - i2_to_i3 - (_mu+_death_rate)*_i2
-    _d_i3 = i2_to_i3 - i3_to_r - (_mu+_death_rate)*_i3
-    _d_r = i3_to_r - _mu*_r
+    _d_s = -s_to_e
+    _d_e = s_to_e - e_to_i1
+    _d_i1 = e_to_i1 - i1_to_i2 - i1_to_r
+    _d_i2 = i1_to_i2 - i2_to_i3 - i2_to_r
+    _d_i3 = i2_to_i3 - i3_to_r - i3_to_d
+    _d_r = i1_to_r + i2_to_r + i3_to_r
+    _d_d = i3_to_d
 
-    return torch.stack((_d_s, _d_e1, _d_e2, _d_i1, _d_i2, _d_i3, _d_r), dim=1)
+    return torch.stack((_d_s, _d_e, _d_i1, _d_i2, _d_i3, _d_r, _d_d), dim=1)
 
 
 def simulate_seir(_state, _params, _dt, _t, _noise_func):
@@ -98,7 +104,7 @@ def sample_x0(_n, _N):
     return torch.tensor([[1 - 1 / _N, 1 / _N, 0, 0, 0, 0, 0]] * _n)
 
 
-def sample_prior_parameters(_params, _n=None):
+def sample_prior_parameters(_params, _n=None, get_map=False):
     """
     WH - sample_prior_parameters - Draw the parameters from the prior to begin with.
 
@@ -113,28 +119,51 @@ def sample_prior_parameters(_params, _n=None):
     """
 
     if _n is None:
-        _n = len(_params.log_alpha)
+        _n = len(_params.log_a)
 
-    def _sample_from_confidence_interval(_low, _high):
+    def _sample_from_confidence_interval(_low, _nominal, _high):
+        if get_map:
+            return _nominal
         return _low + torch.rand((_n, )) * (_high-_low)
 
     _params = dc(_params)
 
-    _incubation_period = _sample_from_confidence_interval(4.5, 5.8)
-    _params.log_alpha = torch.tensor(1/_incubation_period).log()
+    # code from https://alhill.shinyapps.io/COVID19seir/
+    IncubPeriod = _sample_from_confidence_interval(4.5, 5.1, 5.8)
+    DurMildInf = _sample_from_confidence_interval(5.5, 6., 6.5)
+    FracMild = 0.81
+    FracSevere = 0.14
+    FracCritical = 0.05
+    CFR = 0.02
+    DurHosp = _sample_from_confidence_interval(8.7, 11.2, 14.9)  # https://arxiv.org/pdf/2002.03268.pdf
+    TimeICUDeath = 7.
 
-    _infectious_period = _sample_from_confidence_interval(1.7, 5.6)
-    _params.log_gamma = (1/_infectious_period).log()
+    a=1/IncubPeriod
+    g1=(1/DurMildInf)*FracMild
+    p1=(1/DurMildInf)-g1
+    p2=(1/DurHosp)*(FracCritical/(FracSevere+FracCritical))
+    g2=(1/DurHosp)-p2
+    kappa=(1/TimeICUDeath)*(CFR/FracCritical)
+    g3=(1/TimeICUDeath)-kappa
 
-    _r0 = _sample_from_confidence_interval(2.1, 3.1)
-    _params.log_r0 = _r0.log()
+    b1 = _sample_from_confidence_interval(0.23, 0.33, 0.43)
+    b2 = _sample_from_confidence_interval(0., 0., 0.05)
+    b3 = _sample_from_confidence_interval(0., 0., 0.025)
 
-    _death_rate = _sample_from_confidence_interval(0.055, 0.059)
-    _params.log_kappa = torch.log(_death_rate / _infectious_period)
+    def tensor_log(x):
+        return torch.tensor(x).expand(_n).log()
 
-    u = torch.rand((_n, ))
-    # u[:] = 0.0
-    _params.u = u
+    _params.log_a = tensor_log(a)
+    _params.log_b1 = tensor_log(b1)
+    _params.log_b2 = tensor_log(b2)
+    _params.log_b3 = tensor_log(b3)
+    _params.log_g1 = tensor_log(g1)
+    _params.log_g2 = tensor_log(g2)
+    _params.log_g3 = tensor_log(g3)
+    _params.log_p1 = tensor_log(p1)
+    _params.log_p2 = tensor_log(p2)
+    _params.log_kappa = tensor_log(kappa)
+    _params.u = torch.rand((_n, ))  # TODO - AW -> WH - this was randn?? that doesnt seem right??
 
     return _params
 
@@ -148,7 +177,7 @@ def sample_unknown_parameters(_params, _n=None):
     """
 
     if _n is None:
-        _n = len(_params.log_alpha)
+        _n = len(_params.log_a)
 
     _params_from_unknown = dc(_params)
     _params_from_prior = sample_prior_parameters(_params_from_unknown, _n)
@@ -164,12 +193,19 @@ def sample_perturb_parameters(_params, _n=None):
     :return:
     """
     _params_perturbed = dc(_params)
-    _params_perturbed.log_alpha   += torch.normal(0.0, 0.01, (len(_params_perturbed.log_alpha), ))
-    _params_perturbed.log_r0      += torch.normal(0.0, 0.01, (len(_params_perturbed.log_r0),    ))
-    _params_perturbed.log_gamma   += torch.normal(0.0, 0.01, (len(_params_perturbed.log_gamma), ))
-    _params_perturbed.log_mu      += torch.normal(0.0, 0.01, (len(_params_perturbed.log_mu),    ))
-    _params_perturbed.log_kappa   += torch.normal(0.0, 0.01, (len(_params_perturbed.log_kappa), ))
-    _params_perturbed.log_lambda  += torch.normal(0.0, 0.01, (len(_params_perturbed.log_lambda),))
+    for key in dir(_params_perturbed):
+        if key[:3] != 'log':
+            pass
+        old_val = getattr(_params_perturbed, key,)
+        new_val = old_val + torch.normal(0.0, 0.01, old_val.shape)
+        setattr(_params_perturbed, key, new_val)
+        print('noising', key)
+    # _params_perturbed.log_alpha   += torch.normal(0.0, 0.01, (len(_params_perturbed.log_alpha), ))
+    # _params_perturbed.log_r0      += torch.normal(0.0, 0.01, (len(_params_perturbed.log_r0),    ))
+    # _params_perturbed.log_gamma   += torch.normal(0.0, 0.01, (len(_params_perturbed.log_gamma), ))
+    # _params_perturbed.log_mu      += torch.normal(0.0, 0.01, (len(_params_perturbed.log_mu),    ))
+    # _params_perturbed.log_kappa   += torch.normal(0.0, 0.01, (len(_params_perturbed.log_kappa), ))
+    # _params_perturbed.log_lambda  += torch.normal(0.0, 0.01, (len(_params_perturbed.log_lambda),))
     return _params_perturbed
 
 
@@ -184,9 +220,9 @@ def sample_identity_parameters(_params, _n=None):
 
 def policy_tradeoff(_params):
     # Do u / R0 plotting.
-    n_sweep = 1001
+    n_sweep = 501
     u = np.square(1 - _params.u)  # 1-u because u is a _reduction_.
-    alpha = np.linspace(0, 2.0, num=n_sweep)
+    alpha = np.linspace(0, 3.0, num=n_sweep)
     beta = np.zeros((len(u), n_sweep))
     for _u in range(len(u)):
         for _a in range(len(alpha)):
