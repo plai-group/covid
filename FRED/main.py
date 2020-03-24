@@ -7,7 +7,7 @@ import torch
 from types import SimpleNamespace
 from sacred import Experiment
 import json
-from zipfile import ZipFile
+import zipfile
 import tempfile
 import uuid
 
@@ -118,7 +118,7 @@ def init(config, seed):
 
 def zipdir(path, dir_path):
     pwd = os.getcwd()
-    with ZipFile(path, 'w') as zip_f:
+    with zipfile.ZipFile(path, 'w', compression=zipfile.ZIP_BZIP2) as zip_f:
         os.chdir(dir_path)
         for root, dirs, files in os.walk('.'):
             for cur_file in files:
