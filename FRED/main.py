@@ -7,7 +7,7 @@ import torch
 from types import SimpleNamespace
 from sacred import Experiment
 import json
-import tarfile
+from zipfile import ZipFile
 import tempfile
 import uuid
 
@@ -83,15 +83,15 @@ def init(config, seed):
     args = SimpleNamespace(**config)
     if args.tmp_directory is None:
         out_dir = Path(args.out_level_1) / args.out_level_2 / args.out_level_3
-        args.tar_file_path = None
+        args.compressed_file_path = None
     else:
         args.tmp_directory = tempfile.mktemp(dir=args.tmp_directory)
         out_dir = Path(args.tmp_directory) / args.out_level_2 / args.out_level_3
-        tar_file_path = Path(args.out_level_1) / args.out_level_2 / f'{args.out_level_3}.tar.gz'
+        compressed_file_path = Path(args.out_level_1) / args.out_level_2 / f'{args.out_level_3}.zip'
         if not args.debug:
-            assert not tar_file_path.exists()
-        tar_file_path.parent.mkdir(parents=True, exist_ok=True)
-        args.tar_file_path = str(tar_file_path)
+            assert not compressed_file_path.exists()
+        compressed_file_path.parent.mkdir(parents=True, exist_ok=True)
+        args.compressed_file_path = str(compressed_file_path)
 
     out_dir.mkdir(parents=True, exist_ok=args.debug)
     args.out_dir = str(out_dir)
@@ -115,6 +115,17 @@ def init(config, seed):
                   indent=4, separators=(',', ': '))
     return args
 
+
+def zipdir(path, dir_path):
+    pwd = os.getcwd()
+    with ZipFile(path, 'w') as zip_f:
+        os.chdir(dir_path)
+        for root, dirs, files in os.walk('.'):
+            for cur_file in files:
+                zip_f.write(os.path.join(root, cur_file))
+    os.chdir(pwd)
+
+
 def run(args):
     def model_dispatcher(trace_idx):
         arguments = f'{args.params} {trace_idx} {args.out_dir}'
@@ -128,6 +139,7 @@ def run(args):
                             restart_per_trace=True, kill_on_zero_likelihood=args.kill_on_zero_likelihood)
         traces = model.posterior(num_traces=args.num_traces, inference_engine=pyprob.InferenceEngine.IMPORTANCE_SAMPLING,
                                  observe={f'obs_{i}': args.constraint_threshold for i in range(args.days)})
+        trace_weights = {}
         for idx, trace in enumerate(traces):
             # Convert the latent variables that are converted to integer on C++ code.
             trace.named_variables['shelter_in_place_duration_mean'].value = trace.named_variables['shelter_in_place_duration_mean'].value.int()
@@ -135,20 +147,33 @@ def run(args):
             
             dump_parameter_file(sampled_parameters={name : variable.value.item() for name, variable in trace.named_variables.items() if not variable.observed},
                                 path=os.path.join(args.out_dir, f'params{idx}'), args=args)
-            print(f'likelihood {idx}: {np.exp(trace.log_importance_weight)}')
-        traces.copy(file_name=os.path.join(args.out_dir, f'traces')) # Save the traces to file
+            weight = np.exp(trace.log_importance_weight)
+            print(f'likelihood {idx}: {weight}')
+            assert weight < 0.2 or weight > 0.8
+            trace_weights[idx] = int(weight < 0.5)
+
+        # Save the trace weights
+        with open(os.path.join(args.out_dir, 'weights.json'), 'w') as fp:
+            json.dump(trace_weights, fp,
+                      indent=4, separators=(',', ': '))
+        # Save the traces to file
+        traces.copy(file_name=os.path.join(args.out_dir, f'traces'))
+    except Exception as e:
+        if args.compressed_file_path is not None:
+            # Compress the outputs
+            print('Failed... Compressing the output')
+            zipdir(f'{args.compressed_file_path}_failed', args.out_dir)
+        raise e
     finally:
         if model._model_process is not None:
             print('Done, killing model process: {}'.format(model._model_process.pid))
             os.killpg(os.getpgid(model._model_process.pid), signal.SIGTERM)
 
-        if args.tar_file_path is not None:
-            # Compress the outputs
-            print('Compressing the output')
-            with tarfile.open(args.tar_file_path, "w:gz") as tar:
-                os.chdir(args.out_dir)
-                for name in os.listdir("."):
-                        tar.add(name)
+    
+    if args.compressed_file_path is not None:
+        # Compress the outputs
+        print('Compressing the output')
+        zipdir(args.compressed_file_path, args.out_dir)
 
 @ex.automain
 def command_line_entry(_run,_config, _seed):
