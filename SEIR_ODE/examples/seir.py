@@ -245,7 +245,8 @@ def policy_tradeoff(_params):
 
     return alpha, beta, typical_u, typical_alpha, typical_beta
 
-def _nmc_estimate(_current_state, _params, _controlled_parameters, _time_now,_valid_simulation,
+
+def nmc_estimate(_current_state, _params, _time_now, _controlled_parameters, _valid_simulation,
                   _proposal=sample_unknown_parameters):
     """
     AW - _nmc_estimate - calculate the probability that the specified parameters will
@@ -260,6 +261,7 @@ def _nmc_estimate(_current_state, _params, _controlled_parameters, _time_now,_va
         _new_parameters = sample_prior_parameters(_params, len(_current_state))
     else:
         _new_parameters = sample_prior_parameters(_params, len(_current_state), get_map=True)
+        _new_parameters.u = _new_parameters.u * torch.ones((len(_current_state), ))
 
     # Overwrite with the specified parameter value.
     _new_parameters.u[:] = _controlled_parameters['u']
@@ -271,12 +273,12 @@ def _nmc_estimate(_current_state, _params, _controlled_parameters, _time_now,_va
     return _p_valid, _results_noised, _valid_simulations
 
 
-def _parallel_nmc_estimate(_pool, _current_state, _params, _time_now, _controlled_parameter_values, _valid_simulation):
+def parallel_nmc_estimate(_pool, _current_state, _params, _time_now, _controlled_parameter_values, _valid_simulation):
     # Create args dictionary.
-    _args = [(_current_state, _params, _c, _time_now, _valid_simulation) for _c in _controlled_parameter_values]
+    _args = [(_current_state, _params, _time_now, _c, _valid_simulation) for _c in _controlled_parameter_values]
 
     # Do the sweep
-    _results = _pool.starmap(_nmc_estimate, _args)
+    _results = _pool.starmap(nmc_estimate, _args)
 
     # Pull out the results for plotting.
     _p_valid = [_r[0] for _r in _results]

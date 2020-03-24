@@ -9,14 +9,14 @@ from sacred import Experiment
 import json
 import zipfile
 import tempfile
-import uuid
 
-server_address = f'ipc://@FRED:{uuid.uuid4().hex}'
-model_executable = 'FRED'
+model_executable = '/FRED/bin/FRED'
 FRED_HOME = os.environ['FRED_HOME']
 HOME = os.environ['HOME']
 USER = os.environ['USER']
 default_params = None
+fips_dict = {'jefferson': 42065,
+             'allegheny': 42003}
 
 # Use sacred for command line interface + hyperparams
 ex = Experiment()
@@ -24,7 +24,7 @@ ex = Experiment()
 @ex.config
 def my_config():
     # paths
-    params_base = f'{FRED_HOME}/jefferson_county/params'
+    params_base = f'{FRED_HOME}/params'
     out_level_1 = f'results'
     out_level_2 = 'experiment_name'
     out_level_3 = 'simulation_number'
@@ -39,6 +39,9 @@ def my_config():
 
     # Simulator parameters
     days = None
+    city = 'jefferson'
+    assert city in fips_dict
+    _fips = fips_dict[city]
 
 
 def read_param_file(path):
@@ -97,6 +100,11 @@ def init(config, seed):
     args.out_dir = str(out_dir)
     base_params = read_param_file(args.params_base)
 
+    # Set the city fips and days
+    base_params['fips'] = args._fips
+    if args.city == 'allegheny' and args.days is None:
+        args.days = 150
+
     if args.days is not None:
         base_params['days'] = args.days
     else:
@@ -127,7 +135,7 @@ def zipdir(path, dir_path):
 
 
 def run(args):
-    def model_dispatcher(trace_idx):
+    def model_dispatcher(trace_idx, server_address):
         arguments = f'{args.params} {trace_idx} {args.out_dir}'
         if args.dump_simulator_log:
             return subprocess.Popen(f'{model_executable} {server_address} {arguments} 2>&1 > {args.out_dir}/LOG{trace_idx} &', shell=True, preexec_fn=os.setsid)
@@ -135,22 +143,24 @@ def run(args):
             return subprocess.Popen(f'{model_executable} {server_address} {arguments} 2>&1 &', shell=True, preexec_fn=os.setsid)
 
     try:
-        model = RemoteModel(server_address, model_dispatcher=model_dispatcher,
-                            restart_per_trace=True, kill_on_zero_likelihood=args.kill_on_zero_likelihood)
+        model = RemoteModel(random_server_address=True,
+                            model_dispatcher=model_dispatcher,
+                            restart_per_trace=True,
+                            kill_on_zero_likelihood=args.kill_on_zero_likelihood)
         traces = model.posterior(num_traces=args.num_traces, inference_engine=pyprob.InferenceEngine.IMPORTANCE_SAMPLING,
                                  observe={f'obs_{i}': args.constraint_threshold for i in range(args.days)})
         trace_weights = {}
         for idx, trace in enumerate(traces):
             # Convert the latent variables that are converted to integer on C++ code.
+            trace.named_variables['school_closure_duration'].value = trace.named_variables['school_closure_duration'].value.int()
             trace.named_variables['shelter_in_place_duration_mean'].value = trace.named_variables['shelter_in_place_duration_mean'].value.int()
-            trace.named_variables['enable_shelter_in_place'].value = trace.named_variables['enable_shelter_in_place'].value.int()
             
             dump_parameter_file(sampled_parameters={name : variable.value.item() for name, variable in trace.named_variables.items() if not variable.observed},
                                 path=os.path.join(args.out_dir, f'params{idx}'), args=args)
             weight = np.exp(trace.log_importance_weight)
             print(f'likelihood {idx}: {weight}')
             assert weight < 0.2 or weight > 0.8
-            trace_weights[idx] = int(weight < 0.5)
+            trace_weights[idx] = int(weight > 0.5)
 
         # Save the trace weights
         with open(os.path.join(args.out_dir, 'weights.json'), 'w') as fp:
