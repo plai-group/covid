@@ -47,7 +47,7 @@ chmod +x ~/miniconda.sh
 rm ~/miniconda.sh
 
 pip install --upgrade pip
-pip install --progress-bar off numpy 'matplotlib==2.2.3' jupyter scipy tmuxp pypdt pandas
+pip install --progress-bar off numpy 'matplotlib==2.2.3' jupyter scipy tmuxp pypdt pandas tables
 #conda install pytorch=1.0.0 torchvision=0.2.1 -c pytorch
 conda install pytorch torchvision -c pytorch
 
