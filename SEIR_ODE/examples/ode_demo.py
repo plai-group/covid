@@ -34,12 +34,12 @@ plt.rc('text.latex', preamble='\\usepackage{amsmath,amssymb}')
 # CONFIGURE SIMULATION ---------------------------------------------------------------------------------------------
 
 # Experiments to run.
-experiment_do_single_sim = True
+experiment_do_single_sim = False
 experiment_single_rollout = False
 experiment_peak_versus_deaths = False
-experiment_nmc_example = False
-experiment_stoch_vs_det = False
-experiment_mpc_example = False
+experiment_nmc_example = True
+experiment_stoch_vs_det = True
+experiment_mpc_example = True
 
 # Define base parameters of SEIR model.
 log_alpha = torch.log(torch.tensor((1 / 5.1, )))
@@ -60,109 +60,6 @@ untreated_extra_mortality_rate_per_age = [r*0.7 for r in icu_rates]
 untreated_extra_mortality_rate = sum(rate*prop for rate, prop in
                                      zip(untreated_extra_mortality_rate_per_age, us_ages_proportions))
 
-# # AW.
-# covid_total_mortality_rate = 0.0108
-#
-# ICU_admission_rate = 0.05
-#
-# population = 1000000
-# ICU_beds = population * 0.0028
-#
-# f_I_ICU =     lambda _I: np.min((_I, ICU_beds))
-# f_I_NICU =    lambda _I: np.max((_I - ICU_beds, 0))
-#
-# I = 10000
-# __I_fraction = I / population
-#
-# I_ICU_candidates = I * ICU_admission_rate
-#
-# I_H =       I - I_ICU_candidates           # Death rate = 0.0
-# I_ICU =     f_I_ICU(I_ICU_candidates)      # Death rate = 50%
-# I_NICU =    f_I_NICU(I_ICU_candidates)     # Death rate = 100%
-#
-# death_rate_H =      0.0
-# death_rate_ICU =    0.50
-# death_rate_NICU =   1.0
-#
-# D_H = death_rate_H * I_H
-# D_ICU = death_rate_ICU * I_ICU
-# D_NICU = death_rate_NICU * I_NICU
-#
-#
-# # AW simple.
-#
-# cov_total_mortality_rate =    0.0108
-#
-# hos_admission_rate =          0.19
-# hos_bed_fraction =            0.0028  # Hospital bed rate.
-#
-# icu_progression_rate =        0.26
-# icu_bed_fraction =            0.000347
-#
-# dr_icu =        0.5     # Needs to be in ICU, gets into ICU.
-# dr_nicu_h =     0.75    # Needs to be in ICU, gets into hospital.
-# dr_nicu_nh =    1.0     # Needs to be in ICU, doesn't get into hospital.
-#
-# P = 1000000
-# I = 10000
-# icu_beds = icu_bed_fraction * P
-# hos_beds = hos_bed_fraction * P
-#
-# f_I_ICU =       lambda _I: np.min((_I, ICU_beds))
-# f_I_NICU_H =    lambda _I: np.max((_I - ICU_beds, 0))
-# # f_I_NICH_NH =
-#
-# __I_fraction = I / population
-#
-# I_ICU = I * hos_admission_rate * icu_progression_rate
-# # N_ICU =
-
-
-# # AW super simple.
-# P = 1000000
-# I = 50000
-# __I_fraction = I / P
-
-# dr_icu =    0.5
-# dr_nicu =   1.0
-# dr_hosp =   0.01
-
-# icu_bed_fraction = 0.000347
-# icu_beds = icu_bed_fraction * P
-
-# hos_admission_rate =          0.19
-# icu_progression_rate =        0.26
-
-# f_ICU_candidate =   lambda _I: _I * hos_admission_rate * icu_progression_rate
-
-# f_I_ICU =           lambda _I: np.min((f_ICU_candidate(_I), icu_beds))
-# f_I_NICU =          lambda _I: np.max((f_ICU_candidate(_I) - icu_beds, 0))
-# f_I_hosp =          lambda _I: _I * hos_admission_rate * (1 - icu_progression_rate)
-
-# n_ICU = f_I_ICU(I)
-# n_NICU = f_I_NICU(I)
-# n_hosp = f_I_hosp(I)
-
-# deaths = (n_ICU * dr_icu) + (n_NICU * dr_nicu) + (n_hosp * dr_hosp)
-# dr_effective = (deaths / I) * log_gamma.exp()  # This number should be returned by finite capacity death rate.
-
-# kappa_at_I = deaths / P
-# breakdown = (n_ICU * dr_icu), (n_NICU * dr_nicu), (n_hosp * dr_hosp)
-
-# # dr_effective =
-
-# # intensive care capacities:
-# intensive_care_beds_per_infected = 0.044 * 0.3 * 10. / (1/log_gamma.exp())   # 4.4% hospitalised / infection * 30% ICU / hospitalised * 10 days in ICU / assumed infected time of 1/gamma  source: the Imperial paper
-# intensive_care_capacity = 2.8e-3  # beds per population   https://data.oecd.org/healtheqt/hospital-beds.htm
-# max_treatable = intensive_care_capacity / intensive_care_beds_per_infected
-
-# log_kappa =     torch.log(covid_mortality_rate * log_gamma.exp())
-# # log_untreated_extra_kappa = torch.log(untreated_extra_mortality_rate * log_gamma.exp())
-# # log_max_treatable = torch.log(max_treatable)
-# log_lambda = torch.log(torch.tensor((0.00116 / 365, )))  # US birth rate from https://tinyurl.com/sezkqxc
-# log_mu = torch.log(torch.tensor((0.008678 / 365, )))     # non-covid death rate https://tinyurl.com/ybwdzmjs
-# u = torch.tensor((0., ))
-
 # Make sure we are controlling the right things.
 controlled_parameters = ['u']  # We can select u.
 uncontrolled_parameters = ['log_kappa', 'log_a', 'log_p1', 'log_p2', 'log_p1',
@@ -174,7 +71,7 @@ dt = 1.0
 initial_population = 10000
 
 # Define inference settings.
-N_simulation = 30
+N_simulation = 123
 N_parameter_sweep = 101
 
 plotting._sims_to_plot = np.random.randint(0, N_simulation, plotting.n_sims_to_plot)
@@ -200,6 +97,9 @@ def valid_simulation(_state, _params):
     :param _state: tensor (N x D):  tensor of the state trajectory.
     :return: tensor (N, ), bool:    tensor of whether each simulation was valid.
     """
+
+    # TODO - this need to be changed such that it keeps the third I compartment value under a threshold.
+
     _n_infected = _state[:, :, 2] + _state[:, :, 3] + _state[:, :, 4]
     _valid = torch.logical_not(torch.any(_n_infected > _params.policy['infection_threshold'], dim=0))
     return _valid
@@ -246,7 +146,7 @@ if __name__ == '__main__':
         plt.close('all')
 
         if experiment_peak_versus_deaths:
-            plotting.peak_infection_versus_deaths(results_noise, params)
+            plotting.peak_infection_versus_deaths(results_noise, params, _append='simulation_')
 
         plt.pause(0.1)
         plt.close('all')
@@ -258,7 +158,7 @@ if __name__ == '__main__':
         time_now = 0.0
         current_state = seir.sample_x0(N_simulation, initial_population)
 
-        n_sweep = 11
+        n_sweep = 101
         u_sweep = torch.linspace(0, 1, n_sweep)
 
         # Put the controlled parameter values into and args array.
@@ -280,12 +180,12 @@ if __name__ == '__main__':
         if n_worker > 1:
             pool = proc.Pool(processes=n_worker)
             outer_samples['p_valid'], outer_samples['results_noise'], outer_samples['valid_simulations'] = \
-                _parallel_nmc_estimate(pool, current_state, params, time_now, controlled_parameter_values)
+                seir.parallel_nmc_estimate(pool, current_state, params, time_now, controlled_parameter_values, valid_simulation)
             pool.close()
         else:
             for _u in range(len(u_sweep)):
                 # Call the NMC subroutine using the parameters and current state.
-                results = _nmc_estimate(current_state, controlled_params, controlled_parameter_values[_u], time_now)
+                results = seir.nmc_estimate(current_state, controlled_params, time_now, controlled_parameter_values[_u], valid_simulation)
 
                 # Record and plot.
                 outer_samples['p_valid'].append(results[0])
@@ -296,15 +196,18 @@ if __name__ == '__main__':
         expect_results_noised = torch.mean(torch.stack(outer_samples['results_noise']), dim=2).transpose(0, 1)
 
         # Work out which simulations are probabilistically valid.
-        threshold = 0.9
+        threshold = 0.5  # 0.9
         prob_valid_simulations = torch.tensor([(_p > 0.9) for _p in outer_samples['p_valid']]).type(torch.int)
 
         # Do some plotting.
-        plotting._sims_to_plot = np.random.randint(0, len(u_sweep), plotting.n_sims_to_plot)
+        _sims_to_plot_store = dc(plotting._sims_to_plot)
+        plotting._sims_to_plot = np.arange(0, len(u_sweep))
         plotting.nmc_plot(outer_samples, threshold)
-        plotting.do_family_of_plots(controlled_params, expect_results_noised, prob_valid_simulations, t, _prepend='simulation')
-        plt.pause(0.1)
+        plotting.do_family_of_plots(controlled_params, expect_results_noised, prob_valid_simulations, t, _prepend='nmc_')
+        plotting._sims_to_plot = dc(_sims_to_plot_store)
 
+        plt.pause(0.1)
+        plt.close('all')
 
 
 
@@ -322,9 +225,10 @@ if __name__ == '__main__':
         controlled_parameter_values = dc({'u': u_sweep})
         controlled_params = dc(params)
         controlled_params.u = u_sweep
-        _, _, valid_simulations_deterministic = _nmc_estimate(current_state, controlled_params,
-                                                              controlled_parameter_values, time_now,
-                                                              _proposal=seir.sample_identity_parameters)
+        _, _, valid_simulations_deterministic = seir.nmc_estimate(current_state, controlled_params,
+                                                                  time_now, controlled_parameter_values,
+                                                                  valid_simulation,
+                                                                  _proposal=seir.sample_identity_parameters)
 
         # Do stochastic 'sweep.'
         controlled_parameter_values = [dc({'u': _u}) for _u in u_sweep]
@@ -332,7 +236,7 @@ if __name__ == '__main__':
         controlled_params.u = u_sweep
         pool = proc.Pool(processes=proc.cpu_count())
         valid_simulations_stochastic, _, _ = \
-            _parallel_nmc_estimate(pool, current_state, params, time_now, controlled_parameter_values)
+            seir.parallel_nmc_estimate(pool, current_state, params, time_now, controlled_parameter_values, valid_simulation)
         pool.close()
 
         # Analyse the results.
@@ -443,7 +347,7 @@ if __name__ == '__main__':
                         controlled_params.u = controlled_parameter_values['u'][:] * torch.ones((N_simulation, ))
 
                         p_valid, results_noise, valid_simulations = \
-                            _nmc_estimate(current_state, params, controlled_parameter_values, _t * params.dt)
+                            seir.nmc_estimate(current_state, params, _t * params.dt, controlled_parameter_values, valid_simulation)
 
                         # TODO - check this code/
                         if torch.any(p_valid < threshold):

@@ -111,7 +111,7 @@ def make_trajectory_plot(_axe, _params, _results_visited, _results_noise, _valid
     [_axe.plot(_t[_t_idx_current:], _i_n[_s_idx_current:, _i], c=mcd['red'],       linestyle='-', alpha=np.min((2*_alphas[_i], 1.0)), label='$I_t$', zorder=10000) for _i in __sims_to_plot]
     [_axe.plot(_t[_t_idx_current:], _r_n[_s_idx_current:, _i], c=mcd['purple'],    linestyle='-', alpha=np.min((_alphas[_i], 1.0)), label='$R_t$') for _i in __sims_to_plot]
     [_axe.plot(_t[_t_idx_current:], _p_n[_s_idx_current:, _i], 'k:', alpha=np.min((_alphas[_i], 1.0)), label='$N_t$') for _i in __sims_to_plot]
-    _axe.plot(_t.numpy(), (torch.ones_like(_t) * _params.policy['infection_threshold']).numpy(), 'k--', linewidth=2.0, label='$C$', zorder=10000-1)
+    _axe.plot(_t.numpy(), (torch.ones_like(_t) * _params.policy['infection_threshold']).numpy(), 'k--', linewidth=2.0, label='$C$', zorder=10000+1)
     # FI.
     _axe.set_xlabel('Days')
     _axe.set_ylabel('Fraction of population')
@@ -128,8 +128,13 @@ def make_trajectory_plot(_axe, _params, _results_visited, _results_noise, _valid
             _axe.set_ylim(_ylim)
 
 
-def peak_infection_versus_deaths(_results, _params):
+def peak_infection_versus_deaths(_results, _params, _append=''):
     _fig, _axe = plt.subplots()
+
+    try:
+        os.mkdir('./pdf/' + _append)
+    except:
+        pass
 
     populace, s_n, e_n, i_n, r_n = get_statistics(_results)
     initial_pop = populace[0]
@@ -145,8 +150,8 @@ def peak_infection_versus_deaths(_results, _params):
     _axe.set_ylabel('Proportion of population dead')
     _axe.set_xlim(0)
     _axe.set_ylim(0)
-    plt.savefig('./png/infected_deaths.png')
-    plt.savefig('./pdf/infected_deaths.pdf')
+    # plt.savefig('./png/infected_deaths.png')
+    plt.savefig('./pdf/{}/infected_deaths.pdf'.format(_append))
 
 
 def make_parameter_plot(_axe, _new_parameters, _valid_simulations):
@@ -214,7 +219,10 @@ def do_family_of_plots(noised_parameters, results_noise, valid_simulations, t, _
 
     _zoom_lims = (0.0, 0.2)
 
-    os.mkdir('./pdf/{}'.format(_prepend))
+    try:
+        os.mkdir('./pdf/{}'.format(_prepend))
+    except:
+        pass
 
     plt.figure(figsize=fig_size_short)
     make_trajectory_plot(plt.gca(), noised_parameters, _visited_states, results_noise, valid_simulations, t, _plot_valid=True)
@@ -223,6 +231,8 @@ def do_family_of_plots(noised_parameters, results_noise, valid_simulations, t, _
     plt.tight_layout()
     # plt.savefig('./png/{}/{}trajectory_full_valid{}.png'.format(_prepend, _prepend, _num), dpi=dpi)
     plt.savefig('./pdf/{}/{}trajectory_full_valid{}.pdf'.format(_prepend, _prepend, _num))
+
+    # TODO - there is something wrong with plotting the valids.
 
     plt.figure(figsize=fig_size_short)
     make_trajectory_plot(plt.gca(), noised_parameters, _visited_states, results_noise, valid_simulations, t, _plot_valid=True, _ylim=_zoom_lims)
@@ -267,7 +277,7 @@ def do_family_of_plots(noised_parameters, results_noise, valid_simulations, t, _
     plt.pause(0.1)
 
 
-def nmc_plot(outer_samples, _threshold):
+def nmc_plot(outer_samples, _threshold, _prepend='nmc_'):
     nmc_fig = plt.figure(10, fig_size_small)
     nmc_axe = plt.gca()
     plt.plot((0, 1), (0.9, 0.9), 'k:')
@@ -281,9 +291,9 @@ def nmc_plot(outer_samples, _threshold):
     _c = _c_l[(np.asarray(outer_samples['p_valid']) > _threshold).astype(np.int)]
 
     nmc_axe.scatter(outer_samples['u'], np.asarray(outer_samples['p_valid']), c=_c)
-    plt.savefig('./png/nmc.png')
+    plt.savefig('./pdf/{}/nmc_parameters.pdf'.format(_prepend))
     plt.pause(0.1)
-    plt.close(10)
+    # plt.close(10)
 
 
 def det_plot(results_deterministic, valid_simulations, params, t, _append='', _legend=False):
@@ -292,6 +302,11 @@ def det_plot(results_deterministic, valid_simulations, params, t, _append='', _l
     global _sims_to_plot
     _sims_to_plot_store = dc(_sims_to_plot)
     _sims_to_plot = np.arange(np.alen(valid_simulations))
+
+    try:
+        os.mkdir('./pdf/deterministic_')
+    except:
+        pass
 
     n_survivor = 1.0 - results_deterministic[-1, 0, -1]
     peak_infected = float( (results_deterministic[:, 0, 2] + results_deterministic[:, 0, 3] + results_deterministic[:, 0, 4]).max( axis=0).values)
@@ -304,7 +319,7 @@ def det_plot(results_deterministic, valid_simulations, params, t, _append='', _l
     ax2.set_yticks([n_survivor, peak_infected])
     ax2.set_yticklabels(['$N_T=$\n${:0.3f}$'.format(n_survivor), '$I_{max}=$\n' + '${:0.3f}$'.format(peak_infected)])
     plt.tight_layout()
-    plt.savefig('./pdf/deterministic/deterministic_trajectory_full_{}.pdf'.format(_append))
+    plt.savefig('./pdf/deterministic_/deterministic_trajectory_full_{}.pdf'.format(_append))
 
     fig, ax1 = plt.subplots(figsize=fig_size_short)
     make_trajectory_plot(plt.gca(), params, None, results_deterministic, valid_simulations, t, _plot_valid="full", _ylim=(0.0, 0.2))
@@ -315,7 +330,7 @@ def det_plot(results_deterministic, valid_simulations, params, t, _append='', _l
     ax2.set_yticklabels(['$I_{max}=$\n' + '${:0.3f}$'.format(peak_infected)])
     if _legend: fig.legend(loc=(0.5, 0.6), ncol=2, prop={'size': 8})
     plt.tight_layout()
-    plt.savefig('./pdf/deterministic/deterministic_trajectory_zoom_nominal.pdf'.format())
+    plt.savefig('./pdf/deterministic_/deterministic_trajectory_zoom_nominal.pdf'.format())
 
     # Restore the global value.
     _sims_to_plot = dc(_sims_to_plot_store)
