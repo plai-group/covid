@@ -163,7 +163,7 @@ def sample_prior_parameters(_params, _n=None, get_map=False):
     _params.log_p1 = tensor_log(p1)
     _params.log_p2 = tensor_log(p2)
     _params.log_kappa = tensor_log(kappa)
-    _params.u = torch.randn((_n, ))
+    _params.u = torch.rand((_n, ))  # TODO - AW -> WH - this was randn?? that doesnt seem right??
 
     return _params
 
@@ -220,9 +220,9 @@ def sample_identity_parameters(_params, _n=None):
 
 def policy_tradeoff(_params):
     # Do u / R0 plotting.
-    n_sweep = 1001
+    n_sweep = 501
     u = np.square(1 - _params.u)  # 1-u because u is a _reduction_.
-    alpha = np.linspace(0, 2.0, num=n_sweep)
+    alpha = np.linspace(0, 3.0, num=n_sweep)
     beta = np.zeros((len(u), n_sweep))
     for _u in range(len(u)):
         for _a in range(len(alpha)):
