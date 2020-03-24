@@ -38,7 +38,7 @@ experiment_do_single_sim =  False
 experiment_single_rollout = False
 experiment_icu_capacity =   False
 experiment_nmc_example =    False
-experiment_stoch_vs_det =   False
+experiment_stoch_vs_det =   True
 experiment_mpc_example =    True
 
 # Define base parameters of SEIR model.
@@ -72,7 +72,7 @@ initial_population = 10000
 
 # Define inference settings.
 N_simulation = 123
-N_parameter_sweep = 101
+N_parameter_sweep = 41
 
 plotting._sims_to_plot = np.random.randint(0, N_simulation, plotting.n_sims_to_plot)
 
@@ -186,9 +186,7 @@ if __name__ == '__main__':
 
         time_now = 0.0
         current_state = seir.sample_x0(N_simulation, initial_population)
-
-        n_sweep = 101
-        u_sweep = torch.linspace(0, 1, n_sweep)
+        u_sweep = torch.linspace(0, 1, N_parameter_sweep)
 
         # Put the controlled parameter values into and args array.
         controlled_parameter_values = [dc({'u': _u}) for _u in u_sweep]
@@ -246,13 +244,12 @@ if __name__ == '__main__':
     if experiment_stoch_vs_det:
 
         time_now = 0.0
-        n_sweep = 501
-        current_state = seir.sample_x0(n_sweep, initial_population)
-        u_sweep = torch.linspace(0, 1, n_sweep)
+        current_state = seir.sample_x0(N_parameter_sweep, initial_population)
+        u_sweep = torch.linspace(0, 1, N_parameter_sweep)
 
         # Do deterministic 'sweep.'
         controlled_parameter_values = dc({'u': u_sweep})
-        controlled_params = dc(params)
+        controlled_params = seir.sample_prior_parameters(params, _n=N_parameter_sweep, get_map=True)
         controlled_params.u = u_sweep
         _, _, valid_simulations_deterministic = seir.nmc_estimate(current_state, controlled_params,
                                                                   time_now, controlled_parameter_values,
@@ -260,6 +257,7 @@ if __name__ == '__main__':
                                                                   _proposal=seir.sample_identity_parameters)
 
         # Do stochastic 'sweep.'
+        current_state = seir.sample_x0(N_simulation, initial_population)
         controlled_parameter_values = [dc({'u': _u}) for _u in u_sweep]
         controlled_params = dc(params)
         controlled_params.u = u_sweep
@@ -291,8 +289,8 @@ if __name__ == '__main__':
 
         plt.tight_layout()
         plt.pause(0.1)
-        plt.savefig('./png/stoch_det_parameters.png', dpi=plotting.dpi)
-        plt.savefig('./pdf/stoch_det_parameters.pdf')
+        # plt.savefig('./png/stoch_det_/stoch_det_parameters.png', dpi=plotting.dpi)
+        plt.savefig('./pdf/stoch_det_/stoch_det_parameters.pdf')
         p = 0
 
 
@@ -363,7 +361,7 @@ if __name__ == '__main__':
             do_plot = True
             _title = 't={} / {} days'.format(int(_t) / planning_step, T)
             if do_plot:
-                _plot_frequency = 1
+                _plot_frequency = 10
                 if _t % _plot_frequency == 0:
 
                     # Do NMC plot.
@@ -376,32 +374,16 @@ if __name__ == '__main__':
 
                     _do_controled_plot = True
                     if _do_controled_plot:
-                        # Run simulation with the chosen control.
-                        controlled_parameter_values = dc({'u': torch.tensor([outer_samples['u'][first_valid_simulation]])})
-                        controlled_params = dc(params)
-                        controlled_params.u = controlled_parameter_values['u'][:] * torch.ones((N_simulation, ))
-
-                        p_valid, results_noise, valid_simulations = \
-                            seir.nmc_estimate(current_state, params, _t * params.dt, controlled_parameter_values, valid_simulation)
-
-                        # TODO - check this code/
-                        tag = ''
-                        if torch.any(p_valid < threshold):
-                            if torch.any(torch.logical_not(valid_simulations)):
-                                warnings.warn('WARNING - CONSTRAINT VOLATION.')
-                                print(p_valid)
-                                print(threshold)
-                                print(valid_simulations)
-                                # raise RuntimeError  # AAAHHHHH
-                                tag = '_WARNING'
-
-                        plotting.do_family_of_plots(controlled_params, results_noise, torch.ones((N_simulation, )), t,
-                                                    _visited_states=visited_states,
-                                                    _prepend='mpc_', _title='', _num='_controlled_{:05d}{}'.format(img_frame, tag))
+                        plotting.do_controlled_plot(outer_samples, first_valid_simulation, params, N_simulation,
+                                                    current_state, t, _t,  valid_simulation, threshold, img_frame,
+                                                    visited_states)
 
                     img_frame += 1
                     plt.pause(0.1)
                     plt.close('all')
+
+                    # Remove some images we dont want.
+                    os.system('\\rm -rf ./pdf/mpc_/mpc_trajectory_zoom_all_controlled_*')
 
 
         os.system(ffmpeg_command)

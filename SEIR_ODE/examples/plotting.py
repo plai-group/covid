@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+import warnings
 import matplotlib.ticker as mtick
 import os
 
@@ -219,7 +220,7 @@ def make_policy_plot(_axe, _params, _alpha, _beta, _valid_simulations, _typical_
 def do_family_of_plots(noised_parameters, results_noise, valid_simulations, t, _prepend, _visited_states=None, _t_now=0, _title=None, _num=""):
     alpha, beta, typical_u, typical_alpha, typical_beta = seir.policy_tradeoff(noised_parameters)
 
-    _zoom_lims = (0.0, 0.2)
+    _zoom_lims = (0.0, 0.1)
 
     try:
         os.mkdir('./pdf/{}'.format(_prepend))
@@ -322,7 +323,7 @@ def det_plot(results_deterministic, valid_simulations, params, t, _append='', _l
     plt.savefig('./pdf/deterministic_/deterministic_trajectory_full_{}.pdf'.format(_append))
 
     fig, ax1 = plt.subplots(figsize=fig_size_short)
-    make_trajectory_plot(plt.gca(), params, None, results_deterministic, valid_simulations, t, _plot_valid="full", _ylim=(0.0, 0.2))
+    make_trajectory_plot(plt.gca(), params, None, results_deterministic, valid_simulations, t, _plot_valid="full", _ylim=(0.0, 0.1))
     ax2 = ax1.twinx()
     ax2.set_ylim(ax1.get_ylim())
     ax2.set_yticks([], [])
@@ -334,3 +335,31 @@ def det_plot(results_deterministic, valid_simulations, params, t, _append='', _l
 
     # Restore the global value.
     _sims_to_plot = dc(_sims_to_plot_store)
+
+
+def do_controlled_plot(outer_samples, first_valid_simulation, params, N_simulation, current_state, t, _t,
+                       valid_simulation, threshold, img_frame, visited_states):
+    # Run simulation with the chosen control.
+    controlled_parameter_values = dc({'u': torch.tensor([outer_samples['u'][first_valid_simulation]])})
+    controlled_params = dc(params)
+    controlled_params.u = controlled_parameter_values['u'][:] * torch.ones((N_simulation,))
+
+    p_valid, results_noise, valid_simulations = \
+        seir.nmc_estimate(current_state, params, _t * params.dt, controlled_parameter_values, valid_simulation)
+
+    # TODO - check this code/
+    tag = ''
+    if torch.any(p_valid < threshold):
+        if torch.any(torch.logical_not(valid_simulations)):
+            warnings.warn('WARNING - CONSTRAINT VOLATION.')
+            print('img_frame:\t ' + str(img_frame))
+            print('_t:\t\t\t ' + str(_t))
+            print('p_valid:\t\t ' + str(p_valid))
+            print('threshold:\t ' + str(threshold))
+            print('valid_simulations: \n' + str(valid_simulations))
+            # raise RuntimeError  # AAAHHHHH
+            tag = '_WARNING'
+
+    do_family_of_plots(controlled_params, results_noise, torch.ones((N_simulation,)), t,
+                                _visited_states=visited_states,
+                                _prepend='mpc_', _title='', _num='_controlled_{:05d}{}'.format(img_frame, tag))
