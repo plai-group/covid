@@ -34,11 +34,11 @@ plt.rc('text.latex', preamble='\\usepackage{amsmath,amssymb}')
 # CONFIGURE SIMULATION ---------------------------------------------------------------------------------------------
 
 # Experiments to run.
-experiment_do_single_sim =  True
-experiment_single_rollout = True
-experiment_icu_capacity =   True
-experiment_nmc_example =    True
-experiment_stoch_vs_det =   True
+experiment_do_single_sim =  False
+experiment_single_rollout = False
+experiment_icu_capacity =   False
+experiment_nmc_example =    False
+experiment_stoch_vs_det =   False
 experiment_mpc_example =    True
 
 # Define base parameters of SEIR model.
@@ -71,7 +71,7 @@ dt = 1.0
 initial_population = 10000
 
 # Define inference settings.
-N_simulation = 12#3
+N_simulation = 123
 N_parameter_sweep = 101
 
 plotting._sims_to_plot = np.random.randint(0, N_simulation, plotting.n_sims_to_plot)
@@ -225,7 +225,7 @@ if __name__ == '__main__':
         expect_results_noised = torch.mean(torch.stack(outer_samples['results_noise']), dim=2).transpose(0, 1)
 
         # Work out which simulations are probabilistically valid.
-        threshold = 0.5  # 0.9
+        threshold = 0.9
         prob_valid_simulations = torch.tensor([(_p > 0.9) for _p in outer_samples['p_valid']]).type(torch.int)
 
         # Do some plotting.
@@ -321,6 +321,9 @@ if __name__ == '__main__':
         # Counter for labelling images.
         img_frame = 0
 
+        # Force all plots.
+        plotting._sims_to_plot = np.arange(N_simulation)
+
         for _t in tqdm(np.arange(0, int(T / dt), step=planning_step)):
 
             u_sweep = torch.linspace(0, 1, N_parameter_sweep)
@@ -360,8 +363,11 @@ if __name__ == '__main__':
             do_plot = True
             _title = 't={} / {} days'.format(int(_t) / planning_step, T)
             if do_plot:
-                _plot_frequency = 100
+                _plot_frequency = 1
                 if _t % _plot_frequency == 0:
+
+                    # Do NMC plot.
+                    plotting.nmc_plot(outer_samples, threshold, _prepend='mpc_')
 
                     # Trajectory plot.
                     plotting.do_family_of_plots(controlled_params, expect_results_noised, prob_valid_simulations, t,
@@ -379,13 +385,19 @@ if __name__ == '__main__':
                             seir.nmc_estimate(current_state, params, _t * params.dt, controlled_parameter_values, valid_simulation)
 
                         # TODO - check this code/
+                        tag = ''
                         if torch.any(p_valid < threshold):
                             if torch.any(torch.logical_not(valid_simulations)):
-                                raise RuntimeError  # AAAHHHHH
+                                warnings.warn('WARNING - CONSTRAINT VOLATION.')
+                                print(p_valid)
+                                print(threshold)
+                                print(valid_simulations)
+                                # raise RuntimeError  # AAAHHHHH
+                                tag = '_WARNING'
 
                         plotting.do_family_of_plots(controlled_params, results_noise, torch.ones((N_simulation, )), t,
                                                     _visited_states=visited_states,
-                                                    _prepend='mpc_', _title='', _num='_controlled_{:05d}'.format(img_frame))
+                                                    _prepend='mpc_', _title='', _num='_controlled_{:05d}{}'.format(img_frame, tag))
 
                     img_frame += 1
                     plt.pause(0.1)

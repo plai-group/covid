@@ -291,7 +291,7 @@ def nmc_plot(outer_samples, _threshold, _prepend='nmc_'):
     _c = _c_l[(np.asarray(outer_samples['p_valid']) > _threshold).astype(np.int)]
 
     nmc_axe.scatter(outer_samples['u'], np.asarray(outer_samples['p_valid']), c=_c)
-    plt.savefig('./pdf/{}/nmc_parameters.pdf'.format(_prepend))
+    plt.savefig('./pdf/{}/{}nmc_parameters.pdf'.format(_prepend, _prepend))
     plt.pause(0.1)
     # plt.close(10)
 
