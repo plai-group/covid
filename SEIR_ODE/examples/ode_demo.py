@@ -145,8 +145,7 @@ if __name__ == '__main__':
         plotting.do_family_of_plots(noised_parameters, results_noise, valid_simulations, t, _prepend='simulation_', _num='')
         plt.close('all')
 
-        if experiment_peak_versus_deaths:
-            plotting.peak_infection_versus_deaths(results_noise, params, _append='simulation_')
+        plotting.peak_infection_versus_deaths(results_noise, params, _append='simulation_')
 
         plt.pause(0.1)
         plt.close('all')
