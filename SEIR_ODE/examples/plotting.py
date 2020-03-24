@@ -28,9 +28,9 @@ mcd = muted_colours_dict
 def get_statistics(_results):
     _populace = np.sum(_results.numpy(), axis=2)
     _s_n = _results.numpy()[:, :, 0]
-    _e_n = _results.numpy()[:, :, 1] + _results.numpy()[:, :, 2]
-    _i_n = _results.numpy()[:, :, 3] + _results.numpy()[:, :, 4] + _results.numpy()[:, :, 5]
-    _r_n = _results.numpy()[:, :, 6]
+    _e_n = _results.numpy()[:, :, 1]
+    _i_n = _results.numpy()[:, :, 2] + _results.numpy()[:, :, 3] + _results.numpy()[:, :, 4]
+    _r_n = _results.numpy()[:, :, 5]
     return _populace, _s_n, _e_n, _i_n, _r_n
 
 
@@ -104,11 +104,11 @@ def peak_infection_versus_deaths(_axe, _results, _params):
     death_proportion = (initial_pop - final_pop) / initial_pop
     peak_infected = i_n.max(axis=0)
 
-    max_treatable = _params.log_max_treatable.exp().item()
-    _axe.scatter(peak_infected, death_proportion)
-    _axe.plot([max_treatable, max_treatable],
-              [0, death_proportion.max()],
-              color='k', ls='--')
+    # max_treatable = _params.log_max_treatable.exp().item()
+    # _axe.scatter(peak_infected, death_proportion)
+    # _axe.plot([max_treatable, max_treatable],
+    #           [0, death_proportion.max()],
+    #           color='k', ls='--')
     _axe.set_xlabel('Peak number infected')
     _axe.set_ylabel('Proportion of population dead')
     _axe.set_xlim(0)

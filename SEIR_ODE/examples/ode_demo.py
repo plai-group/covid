@@ -32,8 +32,8 @@ plt.rc('text.latex', preamble='\\usepackage{amsmath,amssymb}')
 # Experiments to run.
 experiment_single_rollout = True
 experiment_peak_versus_deaths = True
-experiment_nmc_example = True
-experiment_mpc_example = True
+experiment_nmc_example = False
+experiment_mpc_example = False
 
 # Define base parameters of SEIR model.
 log_alpha = torch.log(torch.tensor((1 / 5.1, )))
@@ -112,55 +112,55 @@ untreated_extra_mortality_rate = sum(rate*prop for rate, prop in
 # # N_ICU =
 
 
-# AW super simple.
-P = 1000000
-I = 50000
-__I_fraction = I / P
+# # AW super simple.
+# P = 1000000
+# I = 50000
+# __I_fraction = I / P
 
-dr_icu =    0.5
-dr_nicu =   1.0
-dr_hosp =   0.01
+# dr_icu =    0.5
+# dr_nicu =   1.0
+# dr_hosp =   0.01
 
-icu_bed_fraction = 0.000347
-icu_beds = icu_bed_fraction * P
+# icu_bed_fraction = 0.000347
+# icu_beds = icu_bed_fraction * P
 
-hos_admission_rate =          0.19
-icu_progression_rate =        0.26
+# hos_admission_rate =          0.19
+# icu_progression_rate =        0.26
 
-f_ICU_candidate =   lambda _I: _I * hos_admission_rate * icu_progression_rate
+# f_ICU_candidate =   lambda _I: _I * hos_admission_rate * icu_progression_rate
 
-f_I_ICU =           lambda _I: np.min((f_ICU_candidate(_I), icu_beds))
-f_I_NICU =          lambda _I: np.max((f_ICU_candidate(_I) - icu_beds, 0))
-f_I_hosp =          lambda _I: _I * hos_admission_rate * (1 - icu_progression_rate)
+# f_I_ICU =           lambda _I: np.min((f_ICU_candidate(_I), icu_beds))
+# f_I_NICU =          lambda _I: np.max((f_ICU_candidate(_I) - icu_beds, 0))
+# f_I_hosp =          lambda _I: _I * hos_admission_rate * (1 - icu_progression_rate)
 
-n_ICU = f_I_ICU(I)
-n_NICU = f_I_NICU(I)
-n_hosp = f_I_hosp(I)
+# n_ICU = f_I_ICU(I)
+# n_NICU = f_I_NICU(I)
+# n_hosp = f_I_hosp(I)
 
-deaths = (n_ICU * dr_icu) + (n_NICU * dr_nicu) + (n_hosp * dr_hosp)
-dr_effective = (deaths / I) * log_gamma.exp()  # This number should be returned by finite capacity death rate.
+# deaths = (n_ICU * dr_icu) + (n_NICU * dr_nicu) + (n_hosp * dr_hosp)
+# dr_effective = (deaths / I) * log_gamma.exp()  # This number should be returned by finite capacity death rate.
 
-kappa_at_I = deaths / P
-breakdown = (n_ICU * dr_icu), (n_NICU * dr_nicu), (n_hosp * dr_hosp)
+# kappa_at_I = deaths / P
+# breakdown = (n_ICU * dr_icu), (n_NICU * dr_nicu), (n_hosp * dr_hosp)
 
-# dr_effective =
+# # dr_effective =
 
-# intensive care capacities:
-intensive_care_beds_per_infected = 0.044 * 0.3 * 10. / (1/log_gamma.exp())   # 4.4% hospitalised / infection * 30% ICU / hospitalised * 10 days in ICU / assumed infected time of 1/gamma  source: the Imperial paper
-intensive_care_capacity = 2.8e-3  # beds per population   https://data.oecd.org/healtheqt/hospital-beds.htm
-max_treatable = intensive_care_capacity / intensive_care_beds_per_infected
+# # intensive care capacities:
+# intensive_care_beds_per_infected = 0.044 * 0.3 * 10. / (1/log_gamma.exp())   # 4.4% hospitalised / infection * 30% ICU / hospitalised * 10 days in ICU / assumed infected time of 1/gamma  source: the Imperial paper
+# intensive_care_capacity = 2.8e-3  # beds per population   https://data.oecd.org/healtheqt/hospital-beds.htm
+# max_treatable = intensive_care_capacity / intensive_care_beds_per_infected
 
 log_kappa =     torch.log(covid_mortality_rate * log_gamma.exp())
-log_untreated_extra_kappa = torch.log(untreated_extra_mortality_rate * log_gamma.exp())
-log_max_treatable = torch.log(max_treatable)
+# log_untreated_extra_kappa = torch.log(untreated_extra_mortality_rate * log_gamma.exp())
+# log_max_treatable = torch.log(max_treatable)
 log_lambda = torch.log(torch.tensor((0.00116 / 365, )))  # US birth rate from https://tinyurl.com/sezkqxc
 log_mu = torch.log(torch.tensor((0.008678 / 365, )))     # non-covid death rate https://tinyurl.com/ybwdzmjs
 u = torch.tensor((0., ))
 
 # Make sure we are controlling the right things.
 controlled_parameters = ['u']  # We can select u.
-uncontrolled_parameters = ['log_kappa', 'log_alpha', 'log_gamma', 'log_lambda',
-                           'log_mu', 'log_r0', 'log_max_treatable', 'log_untreated_extra_kappa']
+uncontrolled_parameters = ['log_kappa', 'log_a', 'log_p1', 'log_p2', 'log_p1',
+                           'log_p2', 'log_g1', 'log_g2', 'log_g3']
 
 # Define the simulation properties.
 T = 250
@@ -168,7 +168,7 @@ dt = .1
 initial_population = 10000
 
 # Define the policy objectives.
-infection_threshold = log_max_treatable.exp().item()
+infection_threshold = torch.tensor(0.15)  # log_max_treatable.exp().item()
 
 # Define inference settings.
 N_simulation = 1000
@@ -176,19 +176,12 @@ plotting._sims_to_plot = np.random.randint(0, 1000, plotting.n_sims_to_plot)
 
 # Automatically define other required variables.
 t = torch.linspace(0, T, int(T / dt) + 1)
-params = SimpleNamespace(**{'log_alpha': log_alpha,
-                            'log_r0': log_r0,
-                            'log_gamma': log_gamma,
-                            'log_mu': log_mu,
-                            'log_kappa': log_kappa,
-                            'log_max_treatable': log_max_treatable,
-                            'log_untreated_extra_kappa': log_untreated_extra_kappa,
-                            'log_lambda': log_lambda,
-                            'u': u,
-                            'controlled_parameters': controlled_parameters,
-                            'uncontrolled_parameters': uncontrolled_parameters,
-                            'policy': {'infection_threshold': infection_threshold},
-                            'dt': dt})
+
+params = seir.sample_prior_parameters(SimpleNamespace(), _n=1, get_map=True)
+params.policy = {'infection_threshold': torch.tensor((0.05,))}
+params.controlled_parameters = controlled_parameters
+params.uncontrolled_parameters = uncontrolled_parameters
+params.dt = dt
 init_vals = seir.sample_x0(N_simulation, initial_population)
 
 # Real misc shit.
