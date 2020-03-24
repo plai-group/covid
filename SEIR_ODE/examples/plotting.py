@@ -3,6 +3,9 @@ import numpy as np
 import torch
 import matplotlib.ticker as mtick
 
+# Import SEIR module.
+import examples.seir as seir
+
 # Limit the number of simulations we plot.
 n_sims_to_plot = 100
 _sims_to_plot = np.random.randint(0, 1000, n_sims_to_plot)
@@ -23,6 +26,11 @@ muted_colours_dict = {'blue':   muted_colours_list[0],
                       'yellow': muted_colours_list[8],
                       'eggsh':  muted_colours_list[9]}
 mcd = muted_colours_dict
+
+# Real misc shit.
+fig_size_wide = (12, 3)
+fig_size_small = (4, 4)
+dpi=100
 
 
 def get_statistics(_results):
@@ -54,7 +62,7 @@ def get_alphas(_valid_simulations, _plot_valid=None):
     return _alphas
 
 
-def make_trajectory_plot(_axe, _params, _results_visited, _results_noise, _valid_simulations, _t, __t,
+def make_trajectory_plot(_axe, _params, _results_visited, _results_noise, _valid_simulations, _t,
                          _plot_valid=False, _ylim=None):
     """
     Plot the slightly crazy trajectory diagram
@@ -64,28 +72,45 @@ def make_trajectory_plot(_axe, _params, _results_visited, _results_noise, _valid
     # Get the alpha values.
     _alphas = get_alphas(_valid_simulations, _plot_valid)
 
-    _axe.cla()
-    if __t > 0:
-        _p_v, _s_v, _e_v, _i_v, _r_v = get_statistics(_results_visited)
-        _axe.plot(_t[:__t + 1], _s_v, c=mcd['green'])
-        _axe.plot(_t[:__t + 1], _e_v, c=mcd['blue'])
-        _axe.plot(_t[:__t + 1], _r_v, c=mcd['purple'])
-        _axe.plot(_t[:__t + 1], _i_v, c=mcd['red'])
-        _axe.plot(_t[:__t + 1], _p_v, 'k-.')
+    # Limit the number of plots.
+    if len(_sims_to_plot) > len(_valid_simulations):
+        __sims_to_plot = range(len(_valid_simulations))
+    else:
+        __sims_to_plot = _sims_to_plot
 
-    if __t < (torch.max(torch.round(_t / _params.dt)) - 1):
-        _p_n, _s_n, _e_n, _i_n, _r_n = get_statistics(_results_noise)
-        [_axe.plot(_t[__t:], _s_n[:, _i], c=mcd['green'],     linestyle='--', alpha=_alphas[_i]) for _i in _sims_to_plot]
-        [_axe.plot(_t[__t:], _e_n[:, _i], c=mcd['blue'],      linestyle='--', alpha=_alphas[_i]) for _i in _sims_to_plot]
-        [_axe.plot(_t[__t:], _r_n[:, _i], c=mcd['purple'],    linestyle='--', alpha=_alphas[_i]) for _i in _sims_to_plot]
-        [_axe.plot(_t[__t:], _i_n[:, _i], c=mcd['red'],       linestyle='--', alpha=2*_alphas[_i]) for _i in _sims_to_plot]
-        [_axe.plot(_t[__t:], _p_n[:, _i], 'k-.', alpha=_alphas[_i]) for _i in _sims_to_plot]
+    if _results_visited is not None:
+        _t_idx_current = len(_results_visited)
+        _s_idx_current = np.int(np.round(1.0/_params.dt))
+    else:
+        _t_idx_current = 0
+        _s_idx_current = 0
+
+    # _s_idx_current = np.round(((((__t - 1) * _params.dt) + 2) / _params.dt) + 1).astype(np.int)
+    # _t_idx_current = np.round(((((__t - 1) * _params.dt) + 1) / _params.dt) + 1).astype(np.int)  # Different to above as we need to prune off the first.
+
+    _axe.cla()
+    if _t_idx_current > 0:
+        _p_v, _s_v, _e_v, _i_v, _r_v = get_statistics(_results_visited)
+        _axe.plot(_t[:_t_idx_current], _s_v, c=mcd['green'])
+        _axe.plot(_t[:_t_idx_current], _e_v, c=mcd['blue'])
+        _axe.plot(_t[:_t_idx_current], _r_v, c=mcd['purple'])
+        _axe.plot(_t[:_t_idx_current], _i_v, c=mcd['red'])
+        _axe.plot(_t[:_t_idx_current], _p_v, 'k--')
+
+    # if _t_idx_current < (torch.max(torch.round(_t / _params.dt)) - 1):
+    _p_n, _s_n, _e_n, _i_n, _r_n = get_statistics(_results_noise)
+    [_axe.plot(_t[_t_idx_current:], _s_n[_s_idx_current:, _i], c=mcd['green'],     linestyle='--', alpha=_alphas[_i]) for _i in __sims_to_plot]  # np.int(np.round(__t / _params.dt))
+    [_axe.plot(_t[_t_idx_current:], _e_n[_s_idx_current:, _i], c=mcd['blue'],      linestyle='--', alpha=_alphas[_i]) for _i in __sims_to_plot]
+    [_axe.plot(_t[_t_idx_current:], _r_n[_s_idx_current:, _i], c=mcd['purple'],    linestyle='--', alpha=_alphas[_i]) for _i in __sims_to_plot]
+    [_axe.plot(_t[_t_idx_current:], _i_n[_s_idx_current:, _i], c=mcd['red'],       linestyle='--', alpha=2*_alphas[_i]) for _i in __sims_to_plot]
+    [_axe.plot(_t[_t_idx_current:], _p_n[_s_idx_current:, _i], 'k--', alpha=_alphas[_i]) for _i in __sims_to_plot]
     _axe.plot(_t.numpy(), (torch.ones_like(_t) * _params.policy['infection_threshold']).numpy(), 'k--', linewidth=2.0)
+    # FI.
     _axe.set_xlabel('Days')
     _axe.set_ylabel('Fraction of population')
 
-    _axe.set_xlim(left=0.0, right=(_results_noise.size(0)-1) * _params.dt)
-    _axe.set_ylim(bottom=-0.01, top=1.01)
+    _axe.set_xlim(left=0.0, right=_params.T)
+    _axe.set_ylim(bottom=-0.05, top=1.05)
 
     PLOT_ON_LOG = False
     if PLOT_ON_LOG:
@@ -115,19 +140,20 @@ def make_parameter_plot(_axe, _new_parameters, _valid_simulations):
     bin_widths = bin_lims[1:] - bin_lims[:-1]
 
     counts1, _ = np.histogram(1 - _new_parameters.u[torch.logical_not(_valid_simulations)].numpy(), bins=bin_lims)
-    counts2, _ = np.histogram(1 - _new_parameters.u[_valid_simulations].numpy(), bins=bin_lims)
+    counts2, _ = np.histogram(1 - _new_parameters.u[_valid_simulations.type(torch.bool)].numpy(), bins=bin_lims)
 
-    # 2* because we are going to plot on the same axis.
-    hist1b = counts1 / (2 * np.sum(counts1))
-    hist2b = counts2 / (2 * np.sum(counts2))
+    hist1b = counts1 / (np.sum(counts1) + np.sum(counts2))
+    hist2b = counts2 / (np.sum(counts1) + np.sum(counts2))
 
     # 1- as we are reversing the axis.
     _axe.bar(bin_centers, hist1b, width=bin_widths, align='center', alpha=0.5, color=muted_colours_dict['red'])
     _axe.bar(bin_centers, hist2b, width=bin_widths, align='center', alpha=0.5, color=muted_colours_dict['green'])
-    _axe.set_xlabel('$\\hat{R}_0$: Controlled exposure rate \n relative to uncontrolled $R_0$.)')
+    _axe.set_xlabel('$\\hat{R}_0$: Controlled exposure rate \n relative to uncontrolled exposure rate.')
     _axe.set_xlim((1.0, 0.0))
 
-    _axe.text(0.73, 0.92, s='$\\hat{R}_0 = (1 - u)R_0$', bbox=dict(facecolor='white', alpha=0.9, linestyle='-'))
+    _axe.set_ylim((0, 0.15))
+    _y = plt.ylim()[1] * 0.05
+    _axe.text(0.2, _y, s='$\\hat{R}_0 = (1 - u)R_0$', horizontalalignment='center', bbox=dict(facecolor='white', alpha=0.9, linestyle='-'))
 
     _xt = plt.xticks()
     _xt = ['$' + str(int(__xt * 100)) + '\\%R_0$' for __xt in list(_xt[0])]
@@ -143,8 +169,8 @@ def make_policy_plot(_axe, _params, _alpha, _beta, _valid_simulations, _typical_
 
     _u = _params.u
     _color_list = [muted_colours_dict['red'], muted_colours_dict['green']]
-    [_axe.plot(_alpha, _beta[_i], c=_color_list[_valid_simulations[_i].type(torch.int)]) for _i in _sims_to_plot]
-    _axe.plot(_typical_alpha, _typical_beta, 'k', alpha=0.8)
+    [_axe.plot(_alpha, _beta[_i], c=_color_list[_valid_simulations[_i].type(torch.int)]) for _i in range(len(_valid_simulations))]
+    # _axe.plot(_typical_alpha, _typical_beta, 'k', alpha=0.8)
     # _axe.scatter((1.0, ), (1.0, ), c='k', marker='x')
     # _axe.axis('equal')
     _axe.set_xlim(left=0.0, right=1.0)
@@ -153,3 +179,77 @@ def make_policy_plot(_axe, _params, _alpha, _beta, _valid_simulations, _typical_
     _axe.set_ylabel('$\\tau$: Transmission rate relative to normal (at 1.0).')
     _axe.set_xlabel('$\\eta$: Social contact relative to normal (at 1.0).')
     _axe.text(0.73, 0.92, s='$u=\\sqrt{\\tau \\times \\eta}$', bbox=dict(facecolor='white', alpha=0.9, linestyle='-'))
+
+
+def do_family_of_plots(noised_parameters, results_noise, valid_simulations, t, _prepend, _visited_states=None, _t_now=0, _title=None, _num=None):
+    alpha, beta, typical_u, typical_alpha, typical_beta = seir.policy_tradeoff(noised_parameters)
+
+    plt.figure(figsize=fig_size_small)
+    make_trajectory_plot(plt.gca(), noised_parameters, _visited_states, results_noise, valid_simulations, t, _plot_valid=True)
+    if _title is not None:
+        plt.title(_title)
+    plt.tight_layout()
+    plt.savefig('./png/{}trajectory_full_valid{}.png'.format(_prepend, _num), dpi=dpi)
+    plt.savefig('./pdf/{}trajectory_full_valid{}.pdf'.format(_prepend, _num))
+
+    plt.figure(figsize=fig_size_small)
+    make_trajectory_plot(plt.gca(), noised_parameters, _visited_states, results_noise, valid_simulations, t, _plot_valid=True, _ylim=(0.0, 0.2))
+    if _title is not None:
+        plt.title(_title)
+    plt.tight_layout()
+    plt.savefig('./png/{}trajectory_zoom_valid{}.png'.format(_prepend, _num), dpi=dpi)
+    plt.savefig('./pdf/{}trajectory_zoom_valid{}.pdf'.format(_prepend, _num))
+
+    plt.figure(figsize=fig_size_small)
+    make_trajectory_plot(plt.gca(), noised_parameters, _visited_states, results_noise, valid_simulations, t, _plot_valid=None)
+    if _title is not None:
+        plt.title(_title)
+    plt.tight_layout()
+    plt.savefig('./png/{}trajectory_full_all{}.png'.format(_prepend, _num), dpi=dpi)
+    plt.savefig('./pdf/{}trajectory_full_all{}.pdf'.format(_prepend, _num))
+
+    plt.figure(figsize=fig_size_small)
+    make_trajectory_plot(plt.gca(), noised_parameters, _visited_states, results_noise, valid_simulations, t, _plot_valid=None, _ylim=(0.0, 0.2))
+    if _title is not None:
+        plt.title(_title)
+    plt.tight_layout()
+    plt.savefig('./png/{}trajectory_zoom_all{}.png'.format(_prepend, _num), dpi=dpi)
+    plt.savefig('./pdf/{}trajectory_zoom_all{}.pdf'.format(_prepend, _num))
+
+    plt.figure(figsize=fig_size_small)
+    make_parameter_plot(plt.gca(), noised_parameters, valid_simulations)
+    if _title is not None:
+        plt.title(_title)
+    plt.tight_layout()
+    plt.savefig('./png/{}parameters{}.png'.format(_prepend, _num), dpi=dpi)
+    plt.savefig('./pdf/{}parameters{}.pdf'.format(_prepend, _num))
+
+    plt.figure(figsize=fig_size_small)
+    make_policy_plot(plt.gca(), noised_parameters, alpha, beta, valid_simulations, typical_u, typical_alpha, typical_beta)
+    if _title is not None:
+        plt.title(_title)
+    plt.tight_layout()
+    plt.savefig('./png/{}policy{}.png'.format(_prepend, _num), dpi=dpi)
+    plt.savefig('./pdf/{}policy{}.pdf'.format(_prepend, _num))
+
+    plt.pause(0.1)
+
+
+def nmc_plot(outer_samples, _threshold):
+    nmc_fig = plt.figure(10, fig_size_small)
+    nmc_axe = plt.gca()
+    plt.plot((0, 1), (0.9, 0.9), 'k:')
+    plt.ylim((-0.05, 1.05))
+    plt.xlim((0.0, 1.0))
+    plt.grid(True)
+    plt.ylabel('$p( Y=1 | u)$')
+    plt.xlabel('$u$')
+
+    _c_l = np.asarray([muted_colours_dict['red'], muted_colours_dict['green']])
+    _c = _c_l[(np.asarray(outer_samples['p_valid']) > _threshold).astype(np.int)]
+
+    nmc_axe.scatter(outer_samples['u'], np.asarray(outer_samples['p_valid']), c=_c)
+    plt.savefig('./png/nmc.png')
+    plt.pause(0.1)
+    plt.close(10)
+
