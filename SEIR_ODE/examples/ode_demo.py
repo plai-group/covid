@@ -34,10 +34,12 @@ plt.rc('text.latex', preamble='\\usepackage{amsmath,amssymb}')
 # CONFIGURE SIMULATION ---------------------------------------------------------------------------------------------
 
 # Experiments to run.
-experiment_single_rollout = True
-experiment_peak_versus_deaths = True
+experiment_do_single_sim = False
+experiment_single_rollout = False
+experiment_peak_versus_deaths = False
 experiment_nmc_example = False
-experiment_mpc_example = False
+experiment_stoch_vs_det = False
+experiment_mpc_example = True
 
 # Define base parameters of SEIR model.
 log_alpha = torch.log(torch.tensor((1 / 5.1, )))
@@ -175,7 +177,7 @@ initial_population = 10000
 infection_threshold = torch.tensor(0.15)  # log_max_treatable.exp().item()
 
 # Define inference settings.
-N_simulation = 123
+N_simulation = 30
 N_parameter_sweep = 101
 
 plotting._sims_to_plot = np.random.randint(0, N_simulation, plotting.n_sims_to_plot)
@@ -210,6 +212,29 @@ if __name__ == '__main__':
 
     p = 0
 
+    # DO DETERMINISTIC SIMULATION PLOT ---------------------------------------------------------------------------------
+
+    if experiment_do_single_sim:
+        initial_state = seir.sample_x0(1, initial_population)
+        results_deterministic = seir.simulate_seir(initial_state, params, dt, T, seir.sample_identity_parameters)
+        valid_simulations = valid_simulation(results_deterministic, params)
+
+        plotting._sims_to_plot = np.arange(np.alen(valid_simulations))
+        # plotting.do_family_of_plots(params, results_deterministic, valid_simulations, t, _prepend='single_', _num='')
+        plt.figure(figsize=plotting.fig_size_short)
+        plotting.make_trajectory_plot(plt.gca(), params, None, results_deterministic, valid_simulations, t, _plot_valid="full")
+        plt.tight_layout()
+        plt.savefig('./png/deterministic_trajectory_full.png'.format(), dpi=plotting.dpi)
+        plt.savefig('./pdf/deterministic_trajectory_full.pdf'.format())
+
+        plt.figure(figsize=plotting.fig_size_short)
+        plotting.make_trajectory_plot(plt.gca(), params, None, results_deterministic, valid_simulations, t, _plot_valid="full", _ylim=(0.0, 0.2))
+        plt.tight_layout()
+        plt.savefig('./png/deterministic_trajectory_zoom.png'.format(), dpi=plotting.dpi)
+        plt.savefig('./pdf/deterministic_trajectory_zoom.pdf'.format())
+
+        plt.close('all')
+
     # DO SINGLE ROLLOUT PLOT -------------------------------------------------------------------------------------------
 
     if experiment_single_rollout:
@@ -228,12 +253,11 @@ if __name__ == '__main__':
 
         plt.pause(0.1)
         plt.close('all')
-        raise NotImplementedError
 
     # DO SINGLE NMC EXPERIMENT -----------------------------------------------------------------------------------------
 
 
-    def _nmc_estimate(_current_state, _params, _controlled_parameters, _time_now):
+    def _nmc_estimate(_current_state, _params, _controlled_parameters, _time_now, _proposal=seir.sample_unknown_parameters):
         """
         AW - _nmc_estimate - calculate the probability that the specified parameters will
         :param _current_state:          state to condition on.
@@ -243,14 +267,16 @@ if __name__ == '__main__':
         :return:
         """
         # Draw the parameters we wish to marginalize over.
-        _new_parameters = seir.sample_prior_parameters(_params, N_simulation)
+        if _proposal != seir.sample_identity_parameters:
+            _new_parameters = seir.sample_prior_parameters(_params, len(_current_state))
+        else:
+            _new_parameters = seir.sample_prior_parameters(_params, len(_current_state), get_map=True)
 
         # Overwrite with the specified parameter value.
         _new_parameters.u[:] = _controlled_parameters['u']
 
         # Run the simulation with the controlled parameters, marginalizing over the others.
-        _results_noised = seir.simulate_seir(_current_state, _new_parameters, _params.dt, _params.T - _time_now,
-                                             seir.sample_unknown_parameters)
+        _results_noised = seir.simulate_seir(_current_state, _new_parameters, _params.dt, _params.T - _time_now, _proposal)
         _valid_simulations = valid_simulation(_results_noised, _new_parameters)
         _p_valid = _valid_simulations.type(torch.float).mean()
         return _p_valid, _results_noised, _valid_simulations
@@ -322,7 +348,70 @@ if __name__ == '__main__':
         plotting.do_family_of_plots(controlled_params, expect_results_noised, prob_valid_simulations, t, _prepend='simulation')
         plt.pause(0.1)
 
+
+
+
+
+    # DO STOCHASTIC vs DETERMINISTIC COMPARISON ------------------------------------------------------------------------
+
+    if experiment_stoch_vs_det:
+
+        time_now = 0.0
+        n_sweep = 501
+        current_state = seir.sample_x0(n_sweep, initial_population)
+        u_sweep = torch.linspace(0, 1, n_sweep)
+
+        # Do deterministic 'sweep.'
+        controlled_parameter_values = dc({'u': u_sweep})
+        controlled_params = dc(params)
+        controlled_params.u = u_sweep
+        _, _, valid_simulations_deterministic = _nmc_estimate(current_state, controlled_params,
+                                                              controlled_parameter_values, time_now,
+                                                              _proposal=seir.sample_identity_parameters)
+
+        # Do stochastic 'sweep.'
+        controlled_parameter_values = [dc({'u': _u}) for _u in u_sweep]
+        controlled_params = dc(params)
+        controlled_params.u = u_sweep
+        pool = proc.Pool(processes=proc.cpu_count())
+        valid_simulations_stochastic, _, _ = \
+            _parallel_nmc_estimate(pool, current_state, params, time_now, controlled_parameter_values)
+        pool.close()
+
+        # Analyse the results.
+        plt.figure(figsize=plotting.fig_size_short)
+        axe = plt.gca()
+
+        plt.scatter((1 - u_sweep), torch.stack(valid_simulations_stochastic), c=plotting.mcd['green'], marker='.', label='Stochastic')
+        plt.plot((1 - u_sweep), valid_simulations_deterministic.type(torch.float), c=plotting.mcd['red'], label='Deterministic')
+
+        plt.legend(loc='lower right')
+        plt.xlim((0, 1))
+        plt.ylim((-0.02, 1.02))
+        plt.grid(True)
+
+        axe.set_xlabel('$\\hat{R}_0$: Controlled exposure rate \n relative to uncontrolled exposure rate.')
+        axe.text(0.2, 0.75, s='$\\hat{R}_0 = (1 - u)R_0$', horizontalalignment='center',
+                 bbox=dict(facecolor='white', alpha=0.9, linestyle='-'))
+        _xt = plt.xticks()
+        _xt = ['$' + str(int(__xt * 100)) + '\\%R_0$' for __xt in list(_xt[0])]
+        plt.xticks((0, 0.2, 0.4, 0.6, 0.8, 1.0), _xt)
+        axe.set_xlim((1.0, 0.0))
+        plt.ylabel('$p(\\forall_{t > 0} Y_t^{aux}=1 | \\theta)$')
+
+        plt.tight_layout()
+        plt.pause(0.1)
+        plt.savefig('./png/stoch_det_parameters.png', dpi=plotting.dpi)
+        plt.savefig('./pdf/stoch_det_parameters.pdf')
+        p = 0
+
+
+
+
+
+
     # DO ITERATIVE REPLANNING: MODEL PREDICTIVE CONTROL ----------------------------------------------------------------
+
     if experiment_mpc_example:
 
         ffmpeg_command = 'ffmpeg -y -r 25 -i ./png/mpc_%05d.png -c:v libx264 -vf fps=25 -tune stillimage ./mpc.mp4'
@@ -342,7 +431,7 @@ if __name__ == '__main__':
         # Counter for labelling images.
         img_frame = 0
 
-        for _t in range(1):  # tqdm(np.arange(0, int(T / dt), step=planning_step)):
+        for _t in tqdm(np.arange(0, int(T / dt), step=planning_step)):
 
             u_sweep = torch.linspace(0, 1, N_parameter_sweep)
             outer_samples = {'u': u_sweep,
@@ -381,7 +470,7 @@ if __name__ == '__main__':
             do_plot = True
             _title = 't={} / {} days'.format(int(_t) / planning_step, T)
             if do_plot:
-                _plot_frequency = 10  # Have to plot at the frequency of planning right now.
+                _plot_frequency = 100
                 if _t % _plot_frequency == 0:
 
                     # Trajectory plot.
@@ -398,6 +487,11 @@ if __name__ == '__main__':
 
                         p_valid, results_noise, valid_simulations = \
                             _nmc_estimate(current_state, params, controlled_parameter_values, _t * params.dt)
+
+                        # TODO - check this code/
+                        if torch.any(p_valid < threshold):
+                            if torch.any(torch.logical_not(valid_simulations)):
+                                raise RuntimeError  # AAAHHHHH
 
                         plotting.do_family_of_plots(controlled_params, results_noise, torch.ones((N_simulation, )), t,
                                                     _visited_states=visited_states,

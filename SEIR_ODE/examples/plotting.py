@@ -57,7 +57,8 @@ def get_alphas(_valid_simulations, _plot_valid=None):
         _alpha_valid = 0.0
         _alpha_invalid = _alpha_invalid_base * 2
     else:
-        raise NotImplementedError
+        _alpha_invalid = 2.0
+        _alpha_valid = 2.0
 
     _alphas = _alpha_invalid + _alpha_valid * _valid_simulations.numpy().astype(np.int)
     return _alphas
@@ -96,15 +97,15 @@ def make_trajectory_plot(_axe, _params, _results_visited, _results_noise, _valid
         _axe.plot(_t[:_t_idx_current], _e_v, c=mcd['blue'])
         _axe.plot(_t[:_t_idx_current], _r_v, c=mcd['purple'])
         _axe.plot(_t[:_t_idx_current], _i_v, c=mcd['red'])
-        _axe.plot(_t[:_t_idx_current], _p_v, 'k--')
+        _axe.plot(_t[:_t_idx_current], _p_v, 'k:')
 
     # if _t_idx_current < (torch.max(torch.round(_t / _params.dt)) - 1):
     _p_n, _s_n, _e_n, _i_n, _r_n = get_statistics(_results_noise)
-    [_axe.plot(_t[_t_idx_current:], _s_n[_s_idx_current:, _i], c=mcd['green'],     linestyle='--', alpha=_alphas[_i]) for _i in __sims_to_plot]  # np.int(np.round(__t / _params.dt))
-    [_axe.plot(_t[_t_idx_current:], _e_n[_s_idx_current:, _i], c=mcd['blue'],      linestyle='--', alpha=_alphas[_i]) for _i in __sims_to_plot]
-    [_axe.plot(_t[_t_idx_current:], _r_n[_s_idx_current:, _i], c=mcd['purple'],    linestyle='--', alpha=_alphas[_i]) for _i in __sims_to_plot]
-    [_axe.plot(_t[_t_idx_current:], _i_n[_s_idx_current:, _i], c=mcd['red'],       linestyle='--', alpha=2*_alphas[_i]) for _i in __sims_to_plot]
-    [_axe.plot(_t[_t_idx_current:], _p_n[_s_idx_current:, _i], 'k--', alpha=_alphas[_i]) for _i in __sims_to_plot]
+    [_axe.plot(_t[_t_idx_current:], _s_n[_s_idx_current:, _i], c=mcd['green'],     linestyle='-', alpha=np.min((_alphas[_i], 1.0))) for _i in __sims_to_plot]  # np.int(np.round(__t / _params.dt))
+    [_axe.plot(_t[_t_idx_current:], _e_n[_s_idx_current:, _i], c=mcd['blue'],      linestyle='-', alpha=np.min((_alphas[_i], 1.0))) for _i in __sims_to_plot]
+    [_axe.plot(_t[_t_idx_current:], _r_n[_s_idx_current:, _i], c=mcd['purple'],    linestyle='-', alpha=np.min((_alphas[_i], 1.0))) for _i in __sims_to_plot]
+    [_axe.plot(_t[_t_idx_current:], _i_n[_s_idx_current:, _i], c=mcd['red'],       linestyle='-', alpha=np.min((2*_alphas[_i], 1.0))) for _i in __sims_to_plot]
+    [_axe.plot(_t[_t_idx_current:], _p_n[_s_idx_current:, _i], 'k:', alpha=np.min((_alphas[_i], 1.0))) for _i in __sims_to_plot]
     _axe.plot(_t.numpy(), (torch.ones_like(_t) * _params.policy['infection_threshold']).numpy(), 'k--', linewidth=2.0)
     # FI.
     _axe.set_xlabel('Days')
@@ -116,7 +117,7 @@ def make_trajectory_plot(_axe, _params, _results_visited, _results_noise, _valid
     PLOT_ON_LOG = False
     if PLOT_ON_LOG:
         _axe.set_yscale('log')
-        _axe.set_ylim((0.0001, 1.0))
+        _axe.set_ylim((0.000001, 1.0))
     else:
         if _ylim is not None:
             _axe.set_ylim(_ylim)
@@ -134,7 +135,7 @@ def peak_infection_versus_deaths(_results, _params):
     # max_treatable = _params.log_max_treatable.exp().item()
     # _axe.scatter(peak_infected, death_proportion)
     #_axe.plot(max_treatable, max_treatable],
-    _axe.scatter(peak_infected, death_proportion, color='k', ls='--')
+    _axe.scatter(peak_infected, death_proportion, color='k')
     _axe.set_xlabel('Peak number infected')
     _axe.set_ylabel('Proportion of population dead')
     _axe.set_xlim(0)
