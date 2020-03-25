@@ -103,12 +103,15 @@ def make_trajectory_plot(_axe, _params, _results_visited, _results_noise, _valid
 
     _axe.cla()
     if _t_idx_current > 0:
-        _p_v, _s_v, _e_v, _i_v, _r_v = get_statistics(_results_visited)
-        _axe.plot(_t[:_t_idx_current], _s_v, c=mcd['green'])
-        _axe.plot(_t[:_t_idx_current], _e_v, c=mcd['blue'])
-        _axe.plot(_t[:_t_idx_current], _r_v, c=mcd['purple'])
-        _axe.plot(_t[:_t_idx_current], _i_v, c=mcd['red'])
-        _axe.plot(_t[:_t_idx_current], _p_v, 'k')
+        try:
+            _p_v, _s_v, _e_v, _i_v, _r_v = get_statistics(_results_visited)
+            _axe.plot(_t[:(_t_idx_current - 1)], _s_v[:-1], c=mcd['green'])
+            _axe.plot(_t[:(_t_idx_current - 1)], _e_v[:-1], c=mcd['blue'])
+            _axe.plot(_t[:(_t_idx_current - 1)], _r_v[:-1], c=mcd['purple'])
+            _axe.plot(_t[:(_t_idx_current - 1)], _i_v[:-1], c=mcd['red'])
+            _axe.plot(_t[:(_t_idx_current - 1)], _p_v[:-1], 'k')
+        except:
+            pass
 
     # if _t_idx_current < (torch.max(torch.round(_t / _params.dt)) - 1):
     _p_n, _s_n, _e_n, _i_n, _r_n = get_statistics(_results_noise)
@@ -189,15 +192,15 @@ def make_parameter_plot(_axe, _new_parameters, _valid_simulations):
     # 1- as we are reversing the axis.
     _axe.bar(bin_centers, hist1b, width=bin_widths, align='center', alpha=0.5, color=muted_colours_dict['red'])
     _axe.bar(bin_centers, hist2b, width=bin_widths, align='center', alpha=0.5, color=muted_colours_dict['green'])
-    _axe.set_xlabel('$\\hat{R}_0$: Controlled exposure rate \n relative to uncontrolled exposure rate.')
+    _axe.set_xlabel('$\\bar{\\lambda}$: Controlled exposure rate \n relative to uncontrolled exposure rate.')
     _axe.set_xlim((1.0, 0.0))
 
     _axe.set_ylim((0, 0.15))
     _y = plt.ylim()[1] * 0.8
-    _axe.text(0.2, _y, s='$\\hat{R}_0 = (1 - u)R_0$', horizontalalignment='center', bbox=dict(facecolor='white', alpha=0.9, linestyle='-'))
+    _axe.text(0.2, _y, s='$\\bar{\\lambda} = (1 - u)\\lambda$', horizontalalignment='center', bbox=dict(facecolor='white', alpha=0.9, linestyle='-'))
 
     _xt = plt.xticks()
-    _xt = ['$' + str(int(__xt * 100)) + '\\%R_0$' for __xt in list(_xt[0])]
+    _xt = ['$' + str(int(__xt * 100)) + '\\%\\lambda$' for __xt in list(_xt[0])]
     plt.xticks((0, 0.2, 0.4, 0.6, 0.8, 1.0), _xt)
     plt.pause(0.1)
 
@@ -293,17 +296,27 @@ def do_family_of_plots(noised_parameters, results_noise, valid_simulations, t, _
 def nmc_plot(outer_samples, _threshold, _prepend='nmc_', _append=''):
     nmc_fig = plt.figure(10, fig_size_short)
     nmc_axe = plt.gca()
-    plt.plot((0, 1), (0.9, 0.9), 'k:')
-    plt.ylim((-0.05, 1.05))
-    plt.xlim((0.0, 1.0))
-    plt.grid(True)
-    plt.ylabel('$p( Y=1 | u)$')
-    plt.xlabel('$u$')
+    nmc_axe.plot((0, 1), (0.9, 0.9), 'k:')
+    # plt.ylim((-0.05, 1.05))
+    # plt.xlim((0.0, 1.0))
+    # plt.grid(True)
+    # plt.ylabel('$p( Y=1 | u)$')
+    # plt.xlabel('$u$')
 
     _c_l = np.asarray([muted_colours_dict['red'], muted_colours_dict['green']])
     _c = _c_l[(np.asarray(outer_samples['p_valid']) > _threshold).astype(np.int)]
+    plt.scatter((1-outer_samples['u']), np.asarray(outer_samples['p_valid']), c=_c)
 
-    nmc_axe.scatter(outer_samples['u'], np.asarray(outer_samples['p_valid']), c=_c)
+    plt.grid(True)
+    plt.xlabel('$\\bar{\\lambda}$: Controlled exposure rate \n relative to uncontrolled exposure rate.')
+    plt.text(0.18, 0.72, s='$\\bar{\\lambda} = (1 - u)\\lambda$', horizontalalignment='center',
+             bbox=dict(facecolor='white', alpha=0.9, linestyle='-'))
+    _xt = plt.xticks()
+    _xt = ['$' + str(int(__xt * 100)) + '\\%\\lambda$' for __xt in [0, 0.2, 0.4, 0.6, 0.8, 1.0]]
+    plt.xticks((0, 0.2, 0.4, 0.6, 0.8, 1.0), _xt)
+    plt.xlim((1.0, 0.0))
+    plt.ylabel('$p(\\forall_{t > 0} Y_t^{aux}=1 | \\theta)$')
+
     try: os.mkdir('./pdf/{}/policy'.format(_prepend))
     except: pass
     plt.tight_layout()

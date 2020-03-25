@@ -66,13 +66,13 @@ uncontrolled_parameters = ['log_kappa', 'log_a', 'log_p1', 'log_p2', 'log_p1',
                            'log_p2', 'log_g1', 'log_g2', 'log_g3', 'log_icu_capacity']
 
 # Define the simulation properties.
-T = 1000
+T = 500
 dt = 1.0
 initial_population = 10000
 
 # Define inference settings.
-N_simulation = 500
-N_parameter_sweep = 15
+N_simulation = 100
+N_parameter_sweep = 60
 
 plotting._sims_to_plot = np.random.randint(0, N_simulation, plotting.n_sims_to_plot)
 
@@ -308,11 +308,11 @@ if __name__ == '__main__':
         plt.ylim((-0.02, 1.02))
         plt.grid(True)
 
-        axe.set_xlabel('$\\hat{R}_0$: Controlled exposure rate \n relative to uncontrolled exposure rate.')
-        axe.text(0.2, 0.75, s='$\\hat{R}_0 = (1 - u)R_0$', horizontalalignment='center',
+        axe.set_xlabel('$\\bar{\\lambda}$: Controlled exposure rate \n relative to uncontrolled exposure rate.')
+        axe.text(0.2, 0.75, s='$\\bar{\\lambda} = (1 - u)\\lambda$', horizontalalignment='center',
                  bbox=dict(facecolor='white', alpha=0.9, linestyle='-'))
         _xt = plt.xticks()
-        _xt = ['$' + str(int(__xt * 100)) + '\\%R_0$' for __xt in list(_xt[0])]
+        _xt = ['$' + str(int(__xt * 100)) + '\\%\\lambda$' for __xt in list(_xt[0])]
         plt.xticks((0, 0.2, 0.4, 0.6, 0.8, 1.0), _xt)
         axe.set_xlim((1.0, 0.0))
         plt.ylabel('$p(\\forall_{t > 0} Y_t^{aux}=1 | \\theta)$')
@@ -322,6 +322,54 @@ if __name__ == '__main__':
         # plt.savefig('./png/stoch_det_/stoch_det_parameters.png', dpi=plotting.dpi)
         plt.savefig('./pdf/4_stoch_det_/stoch_det_parameters.pdf')
         p = 0
+
+
+        # Now run some sweeps using the estimated values.
+        current_state = seir.sample_x0(3, initial_population)
+        u_sweep = torch.tensor([0.3, 0.4, 0.5])
+
+        # Do deterministic 'sweep' and get the results in.
+        controlled_parameter_values = dc({'u': u_sweep})
+        controlled_params = seir.sample_prior_parameters(params, _n=N_parameter_sweep, get_map=True)
+        controlled_params.u = u_sweep
+        _, results_deterministic, _ = seir.nmc_estimate(current_state, controlled_params,
+                                                        time_now, controlled_parameter_values,
+                                                        valid_simulation,
+                                                        _proposal=seir.sample_identity_parameters)
+
+        # Now plot those sweeps.
+        fig = plt.figure(plotting.fig_size_short)
+        axe = plt.gca()
+        plotting.make_trajectory_plot(axe, controlled_params, None, results_deterministic, torch.ones((len(u_sweep), )), t,
+                                      _plot_valid=None, _ylim=(0.0, 0.15))
+        plt.savefig('./pdf/4_stoch_det_/det_traj.pdf')
+
+        # Now run some sweeps using the estimated values.
+        current_state = seir.sample_x0(N_simulation, initial_population)
+        u_sweep = torch.tensor([0.55])
+        controlled_parameter_values = [dc({'u': _u}) for _u in u_sweep]
+        controlled_params = dc(params)
+        controlled_params.u = u_sweep
+        pool = proc.Pool(processes=proc.cpu_count())
+        _, results_stochastic, _ = \
+        seir.parallel_nmc_estimate(pool, current_state, params, time_now, controlled_parameter_values, valid_simulation)
+        pool.close()
+
+        # Now plot those sweeps.
+        fig = plt.figure(plotting.fig_size_short)
+        axe = plt.gca()
+        plotting.make_trajectory_plot(axe, controlled_params, None, results_stochastic, torch.ones((len(u_sweep), )), t,
+                                      _plot_valid=None, _ylim=(0.0, 0.15))
+        plt.savefig('./pdf/4_stoch_det_/sto_traj.pdf')
+
+        plt.pause(0.1)
+        plt.close('all')
+
+
+
+
+
+
 
 
 
@@ -358,9 +406,11 @@ if __name__ == '__main__':
         # Force all plots.
         plotting._sims_to_plot = np.arange(N_simulation)
 
-        for _t in tqdm(np.arange(0, int(T / dt), step=planning_step)):
+        for _t in range(1):  # tqdm(np.arange(0, int(T / dt), step=planning_step)):
 
-            u_sweep = torch.normal(0.5, 0.15, (N_parameter_sweep, )).clamp(0.0, 1.0).sort().values
+            # u_sweep = torch.normal(0.5, 0.2, (N_parameter_sweep, )).clamp(0.0, 1.0).sort().values
+            u_sweep = torch.linspace(0.0, 1.0, N_parameter_sweep)
+
             outer_samples = {'u': u_sweep,
                              'p_valid': [],
                              'results_noise': [],
@@ -392,15 +442,67 @@ if __name__ == '__main__':
             # # _I_col = _I[:, _I_row].argmax()
             # # print(_I[_I_col, _I_row])
             # _n = _I_row
-            # Pick the continuation that is highest at the next time point.
-            _tr = outer_samples['results_noise'][first_valid_simulation][planning_step + 1]
-            _I = _tr[:, 2] + _tr[:, 3] + _tr[:, 4]
-            _n = _I.argmax()
-            _visited_states = outer_samples['results_noise'][first_valid_simulation][1:(planning_step+1), _n]
+            # # Pick the continuation that is highest at the next time point.
+            # try:
+            #     _tr = outer_samples['results_noise'][first_valid_simulation][planning_step + 1]
+            #     _I = _tr[:, 2] + _tr[:, 3] + _tr[:, 4]
+            #     _n = _I.argmax()
+            # except:
+            #     try:
+            #         print()
+            #         print(outer_samples['results_noise'])
+            #         print(len(outer_samples['results_noise']))
+            #         print(first_valid_simulation)
+            #         print(outer_samples['results_noise'][first_valid_simulation].shape)
+            #         print((planning_step+1))
+            #     except:
+            #         pass
+            #     print('Setting _n = 0, first_valid_simulation = 0')
+            #     print()
+            #     _n = 0
+            #     first_valid_simulation = N_simulation - 1
 
-            # # Prepare the simulated traces for plotting by taking the expectation.
-            # expect_results_noised = torch.stack(outer_samples['results_noise']).transpose(0, 1)[:, first_valid_simulation].mean(dim=1)
-            # _visited_states = expect_results_noised[1:(planning_step+1), :]
+            # if first_valid_simulation == N_simulation:
+            #     # No valid continuation was found, so take the last one.
+            #     first_valid_simulation = N_simulation - 1
+            #
+            # try:
+            #     _visited_states = outer_samples['results_noise'][first_valid_simulation][1:(planning_step+1), _n]
+            # except:
+            #     print(len(outer_samples['results_noise']))
+            #     print(first_valid_simulation)
+            #     print(outer_samples['results_noise'][first_valid_simulation].shape)
+            #     print((planning_step+1))
+            #     print(_n)
+            #     print('EXIT')
+            #     raise RuntimeError
+
+            # Construct a random continuation as a mixute of the
+            if np.random.rand() < 0.5:
+                # # Dont take an adversarial example.
+                # expect_results_noised = torch.stack(outer_samples['results_noise']).transpose(0, 1)[:,
+                #                         first_valid_simulation].mean(dim=1)
+                # _visited_states = expect_results_noised[1:(planning_step + 1), :]
+
+                # Take radnom next step.
+                _n = np.random.randint(0, N_simulation)
+
+            else:
+                # Do take an adversarial example.
+                try:
+                    _tr = outer_samples['results_noise'][first_valid_simulation][planning_step + 1]
+                    _I = _tr[:, 2] + _tr[:, 3] + _tr[:, 4]
+                    _n = _I.argmax()
+                except:
+                    print('')
+                    _n = np.random.randint(0, N_simulation)
+
+            try:
+                _visited_states = outer_samples['results_noise'][first_valid_simulation][1:(planning_step + 1), _n]
+            except:
+                first_valid_simulation = np.random.randint(0, len(outer_samples['results_noise'][first_valid_simulation]-1))
+
+            _visited_states = outer_samples['results_noise'][first_valid_simulation][1:(planning_step + 1), _n]
 
             current_state[:] = dc(_visited_states[-1])
             if len(visited_states) > 0:
@@ -408,9 +510,11 @@ if __name__ == '__main__':
             else:
                 visited_states = _visited_states.unsqueeze(1)
 
+            visited_states = None  # TODO - REMOVE THIS, JUST FOR HACKING PLOTTING.
+
             # Do plotting.
             do_plot = True
-            _title = 't={} / {} days'.format(int(_t) / planning_step, T)
+            _title = None  # 't={} / {} days'.format(int(_t) / planning_step, T)
             if do_plot:
                 _plot_frequency = 1
                 if _t % _plot_frequency == 0:
@@ -418,16 +522,28 @@ if __name__ == '__main__':
                     # Do NMC plot.
                     plotting.nmc_plot(outer_samples, threshold, _prepend='5_mpc_', _append='_{:05d}'.format(img_frame))
 
+                    # Do policy plot.
+                    plt.figure(figsize=plotting.fig_size_small)
+                    alpha, beta, typical_u, typical_alpha, typical_beta = seir.policy_tradeoff(controlled_params)
+                    plotting.make_policy_plot(plt.gca(), controlled_params, alpha, beta, prob_valid_simulations,
+                                              typical_u, typical_alpha, typical_beta)
+                    if _title is not None:
+                        plt.title(_title)
+                    plt.tight_layout()
+                    # plt.savefig('./png/{}/{}policy{}.png'.format(_prepend, _prepend, _num), dpi=dpi)
+                    plt.savefig('./pdf/{}/policy/{}policy{}.pdf'.format('5_mpc_', '5_mpc_full_', '_{:05d}'.format(img_frame)))
+
+                    # Don't plot the means you fucking twat.
+                    expect_results_noised = torch.stack(outer_samples['results_noise']).transpose(0, 1).mean(dim=2)
+                    plotting.do_family_of_plots(controlled_params, expect_results_noised, torch.ones((N_parameter_sweep, )),
+                                                t, _visited_states=visited_states,
+                                                _prepend='5_mpc_mean_', _title='', _num='_{:05d}'.format(img_frame))
+
                     # Trajectory plot.
-                    plt.close()
                     controlled_params.u = torch.ones((N_simulation,)) * u_sweep[first_valid_simulation]
                     plotting.do_family_of_plots(controlled_params, outer_samples['results_noise'][first_valid_simulation],
                                                 torch.ones((N_simulation,)), t, _visited_states=visited_states,
                                                 _prepend='5_mpc_', _title='', _num='_{:05d}'.format(img_frame))
-                    # # Don't plot the means you fucking twat.
-                    # plotting.do_family_of_plots(controlled_params, expect_results_noised, prob_valid_simulations, t,
-                    #                             _visited_states=visited_states,
-                    #                             _prepend='5_mpc_', _title='', _num='_{:05d}'.format(img_frame))
 
                     _do_controled_plot = False
                     if _do_controled_plot:
