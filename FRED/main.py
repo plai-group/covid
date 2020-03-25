@@ -32,16 +32,16 @@ def my_config():
     debug = False
     dump_simulator_log = True
 
-    # Inference-related parameters
-    num_traces = 10
-    kill_on_zero_likelihood = False
-    constraint_threshold = 0.2
-
     # Simulator parameters
     days = None
     city = 'jefferson'
     assert city in fips_dict
     _fips = fips_dict[city]
+
+    # Inference-related parameters
+    num_traces = 10
+    kill_on_zero_likelihood = False
+    constraint_threshold = 0.1
 
 
 def read_param_file(path):
