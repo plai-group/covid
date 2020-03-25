@@ -38,7 +38,7 @@ experiment_do_single_sim =  False
 experiment_single_rollout = False
 experiment_icu_capacity =   False
 experiment_nmc_example =    False
-experiment_stoch_vs_det =   True
+experiment_stoch_vs_det =   False
 experiment_mpc_example =    True
 
 # Define base parameters of SEIR model.
@@ -66,13 +66,13 @@ uncontrolled_parameters = ['log_kappa', 'log_a', 'log_p1', 'log_p2', 'log_p1',
                            'log_p2', 'log_g1', 'log_g2', 'log_g3', 'log_icu_capacity']
 
 # Define the simulation properties.
-T = 500
+T = 1000
 dt = 1.0
 initial_population = 10000
 
 # Define inference settings.
-N_simulation = 123
-N_parameter_sweep = 41
+N_simulation = 500
+N_parameter_sweep = 15
 
 plotting._sims_to_plot = np.random.randint(0, N_simulation, plotting.n_sims_to_plot)
 
@@ -80,7 +80,8 @@ plotting._sims_to_plot = np.random.randint(0, N_simulation, plotting.n_sims_to_p
 t = torch.linspace(0, T, int(T / dt) + 1)
 
 params = seir.sample_prior_parameters(SimpleNamespace(), _n=1, get_map=True)
-params.policy = {'infection_threshold': torch.tensor(0.0145)}
+params.policy = {'infection_threshold': 0.0145,
+                 'icu_capacity': torch.tensor(.259e-3)}
 params.controlled_parameters = controlled_parameters
 params.uncontrolled_parameters = uncontrolled_parameters
 params.dt = dt
@@ -105,6 +106,13 @@ def valid_simulation(_state, _params):
     return _valid
 
 
+def myopic_valid_simulation(_state, _params):
+    length_of_sim = len(_state)
+    planning_window = 100
+    integrate_over = np.min((length_of_sim, planning_window))
+    return valid_simulation(_state[:integrate_over], _params)
+
+
 if __name__ == '__main__':
 
     p = 0
@@ -112,6 +120,9 @@ if __name__ == '__main__':
     # DO DETERMINISTIC SIMULATION PLOT ---------------------------------------------------------------------------------
 
     if experiment_do_single_sim:
+
+        os.system('\\rm -rf ./pdf/1_deterministic_')
+        os.mkdir('./pdf/1_deterministic_')
 
         # Do single determinstic trajectories. ----------------------
         initial_state = seir.sample_x0(1, initial_population)
@@ -132,9 +143,51 @@ if __name__ == '__main__':
 
         plt.close('all')
 
+        # ICU CAPACITY EXPERIMENT --------------------------------------------------------------------------------------
+
+        if experiment_icu_capacity:
+
+            print('\nICU capacity sweep')
+
+            fig = plt.figure(figsize=plotting.fig_size_short)
+            axe = plt.gca()
+            K = 100
+            for _i, capacity_name in enumerate(['zero', 'nominal', 'infinite']):
+
+                initial_state = seir.sample_x0(K, initial_population)
+                params_controlled = seir.sample_prior_parameters(params, K, get_map=True)
+                params_controlled.u = torch.linspace(0, 1, K)
+                capacity = {
+                    'zero': params_controlled.log_icu_capacity - float('inf'),
+                    'nominal': params_controlled.log_icu_capacity,
+                    'infinite': params_controlled.log_icu_capacity + float('inf'),
+                }[capacity_name]
+                params_controlled.log_icu_capacity = capacity
+                results_deterministic = seir.simulate_seir(initial_state, params_controlled, dt,
+                                                           T, seir.sample_identity_parameters)
+                plotting.peak_infection_versus_deaths(axe, results_deterministic, params_controlled,
+                                                      label=f'{capacity_name}',
+                                                      _c=[plotting.mcd['red'],
+                                                          plotting.mcd['blue'],
+                                                          plotting.mcd['green']][_i])
+
+                print(capacity_name)
+                print(f'All: {results_deterministic[:, :].sum(dim=-1).mean():0.5f}')
+                print(f'Max critical: {results_deterministic[:, :, 4].max(dim=0)[0].mean():0.5f}')
+                print(f'Number dead: {results_deterministic[-1, :, -1].mean():0.5f}')
+                plt.savefig('./pdf/{}/infected_deaths.pdf'.format('1_deterministic_'))
+
+            print('\n\n')
+
+            plt.close('all')
+
+
     # DO SINGLE ROLLOUT PLOT -------------------------------------------------------------------------------------------
 
     if experiment_single_rollout:
+
+        os.system('\\rm -rf ./pdf/2_simulation_')
+        os.mkdir('./pdf/2_simulation_')
 
         initial_state = seir.sample_x0(N_simulation, initial_population)
         noised_parameters = seir.sample_prior_parameters(params, N_simulation)
@@ -142,47 +195,21 @@ if __name__ == '__main__':
         valid_simulations = valid_simulation(results_noise, noised_parameters)
 
         plotting._sims_to_plot = np.arange(np.alen(valid_simulations))
-        plotting.do_family_of_plots(noised_parameters, results_noise, valid_simulations, t, _prepend='simulation_', _num='')
+        plotting.do_family_of_plots(noised_parameters, results_noise, valid_simulations, t, _prepend='2_simulation_', _num='')
         plt.close('all')
 
         fig, axe = plt.subplots()
-        plotting.peak_infection_versus_deaths(axe, results_noise, params, _append='simulation_')
+        # plotting.peak_infection_versus_deaths(axe, results_noise, params, _prepend='simulation_')
 
         plt.pause(0.1)
         plt.close('all')
 
-    # ICU CAPACITY EXPERIMENT ------------------------------------------------------------------------------------------
-
-    if experiment_icu_capacity:
-
-        fig, axe = plt.subplots(figsize=(4, 2.8))
-        K = 100
-        for capacity_name in ['zero', 'nominal', 'infinite']:
-
-            initial_state = seir.sample_x0(K, initial_population)
-            params_controlled = seir.sample_prior_parameters(params, K, get_map=True)
-            params_controlled.u = torch.linspace(0, 1, K)
-            capacity = {
-                'zero': params_controlled.log_icu_capacity - float('inf'),
-                'nominal': params_controlled.log_icu_capacity,
-                'infinite': params_controlled.log_icu_capacity + float('inf'),
-            }[capacity_name]
-            params_controlled.log_icu_capacity = capacity
-            results_deterministic = seir.simulate_seir(initial_state, params_controlled, dt,
-                                                       T, seir.sample_identity_parameters)
-            plotting.peak_infection_versus_deaths(axe, results_deterministic, params_controlled, label=f'{capacity_name} ICU capacity')
-
-            print(capacity_name)
-            print(f'All: {results_deterministic[:, :].sum(dim=-1).mean()}')
-            print(f'Max critical: {results_deterministic[:, :, 4].max(dim=0)[0].mean()}')
-            print(f'Number dead: {results_deterministic[-1, :, -1].mean()}')
-
-        plt.close('all')
-
-
     # DO SINGLE NMC EXPERIMENT -----------------------------------------------------------------------------------------
 
     if experiment_nmc_example:
+
+        os.system('\\rm -rf ./pdf/3_nmc_')
+        os.mkdir('./pdf/3_nmc_')
 
         time_now = 0.0
         current_state = seir.sample_x0(N_simulation, initial_population)
@@ -229,8 +256,8 @@ if __name__ == '__main__':
         # Do some plotting.
         _sims_to_plot_store = dc(plotting._sims_to_plot)
         plotting._sims_to_plot = np.arange(0, len(u_sweep))
-        plotting.nmc_plot(outer_samples, threshold, _prepend='nmc_', _append='0')
-        plotting.do_family_of_plots(controlled_params, expect_results_noised, prob_valid_simulations, t, _prepend='nmc_')
+        plotting.nmc_plot(outer_samples, threshold, _prepend='3_nmc_', _append='0')
+        plotting.do_family_of_plots(controlled_params, expect_results_noised, prob_valid_simulations, t, _prepend='3_nmc_')
         plotting._sims_to_plot = dc(_sims_to_plot_store)
 
         plt.pause(0.1)
@@ -242,6 +269,9 @@ if __name__ == '__main__':
     # DO STOCHASTIC vs DETERMINISTIC COMPARISON ------------------------------------------------------------------------
 
     if experiment_stoch_vs_det:
+
+        os.system('\\rm -rf ./pdf/4_stoch_det_')
+        os.mkdir('./pdf/4_stoch_det_')
 
         time_now = 0.0
         current_state = seir.sample_x0(N_parameter_sweep, initial_population)
@@ -290,7 +320,7 @@ if __name__ == '__main__':
         plt.tight_layout()
         plt.pause(0.1)
         # plt.savefig('./png/stoch_det_/stoch_det_parameters.png', dpi=plotting.dpi)
-        plt.savefig('./pdf/stoch_det_/stoch_det_parameters.pdf')
+        plt.savefig('./pdf/4_stoch_det_/stoch_det_parameters.pdf')
         p = 0
 
 
@@ -305,16 +335,22 @@ if __name__ == '__main__':
         ffmpeg_command = 'ffmpeg -y -r 25 -i ./png/mpc_%05d.png -c:v libx264 -vf fps=25 -tune stillimage ./mpc.mp4'
         print('ffmpeg command: ' + ffmpeg_command)
 
+        os.system('\\rm -rf ./pdf/5_mpc_')
+        os.mkdir('./pdf/5_mpc_')
+
         current_state = dc(init_vals)
         visited_states = torch.empty((0, 0, 7))  # torch.tensor(dc(current_state[0])).unsqueeze(0).unsqueeze(0)
 
         parameter_traces = {'u': [],
                             'valid_simulations': []}
 
+        # Set what validity function we want to use.
+        _valid_func = valid_simulation
+
         pool = proc.Pool(proc.cpu_count())
 
-        # We don't want to re-plan at every step.
-        planning_step = np.int(np.round(1 / dt))
+        # We don't want to re-plan at every step.  7 = replan every week.  # TODO must match value in plotting.
+        planning_step = np.int(np.round(14.0 / dt))
 
         # Counter for labelling images.
         img_frame = 0
@@ -324,7 +360,7 @@ if __name__ == '__main__':
 
         for _t in tqdm(np.arange(0, int(T / dt), step=planning_step)):
 
-            u_sweep = torch.linspace(0, 1, N_parameter_sweep)
+            u_sweep = torch.normal(0.5, 0.15, (N_parameter_sweep, )).clamp(0.0, 1.0).sort().values
             outer_samples = {'u': u_sweep,
                              'p_valid': [],
                              'results_noise': [],
@@ -338,19 +374,34 @@ if __name__ == '__main__':
 
             # Run simulation.
             outer_samples['p_valid'], outer_samples['results_noise'], outer_samples['valid_simulations'] = \
-                seir.parallel_nmc_estimate(pool, current_state, params, _t * params.dt, controlled_parameter_values, _valid_simulation=valid_simulation)
+                seir.parallel_nmc_estimate(pool, current_state, params, _t * params.dt, controlled_parameter_values, _valid_func)
 
             # Work out which simulations are probabilistically valid.
             threshold = 0.9
             prob_valid_simulations = torch.tensor([(_p > 0.9) for _p in outer_samples['p_valid']]).type(torch.int)
             first_valid_simulation = np.searchsorted(prob_valid_simulations, threshold)
 
-            # Prepare the simulated traces for plotting by taking the expectation.
-            expect_results_noised = torch.mean(torch.stack(outer_samples['results_noise']), dim=2).transpose(0, 1)
-
             # The 1 is important being the simulate seir code also returns the initial state...
-            _n = np.random.randint(0, N_simulation)
+            # # Pick random continuation.
+            # _n = np.random.randint(0, N_simulation)
+            # # Pick the continuation that peaks highest.
+            # _tr = torch.stack(outer_samples['results_noise'])[first_valid_simulation]
+            # _I = _tr[:, :, 2] + _tr[:, :, 3] + _tr[:, :, 4]
+            # _I_max = _I.argmax(dim=0)
+            # _I_row = _I[_I.argmax(dim=0), torch.arange(N_simulation)].argmax()
+            # # _I_col = _I[:, _I_row].argmax()
+            # # print(_I[_I_col, _I_row])
+            # _n = _I_row
+            # Pick the continuation that is highest at the next time point.
+            _tr = outer_samples['results_noise'][first_valid_simulation][planning_step + 1]
+            _I = _tr[:, 2] + _tr[:, 3] + _tr[:, 4]
+            _n = _I.argmax()
             _visited_states = outer_samples['results_noise'][first_valid_simulation][1:(planning_step+1), _n]
+
+            # # Prepare the simulated traces for plotting by taking the expectation.
+            # expect_results_noised = torch.stack(outer_samples['results_noise']).transpose(0, 1)[:, first_valid_simulation].mean(dim=1)
+            # _visited_states = expect_results_noised[1:(planning_step+1), :]
+
             current_state[:] = dc(_visited_states[-1])
             if len(visited_states) > 0:
                 visited_states = torch.cat((visited_states, dc(_visited_states).unsqueeze(1)), dim=0)
@@ -361,30 +412,37 @@ if __name__ == '__main__':
             do_plot = True
             _title = 't={} / {} days'.format(int(_t) / planning_step, T)
             if do_plot:
-                _plot_frequency = 10
+                _plot_frequency = 1
                 if _t % _plot_frequency == 0:
 
                     # Do NMC plot.
-                    plotting.nmc_plot(outer_samples, threshold, _prepend='mpc_', _append='_{:05d}'.format(img_frame))
+                    plotting.nmc_plot(outer_samples, threshold, _prepend='5_mpc_', _append='_{:05d}'.format(img_frame))
 
                     # Trajectory plot.
-                    plotting.do_family_of_plots(controlled_params, expect_results_noised, prob_valid_simulations, t,
-                                                _visited_states=visited_states,
-                                                _prepend='mpc_', _title='', _num='_{:05d}'.format(img_frame))
+                    plt.close()
+                    controlled_params.u = torch.ones((N_simulation,)) * u_sweep[first_valid_simulation]
+                    plotting.do_family_of_plots(controlled_params, outer_samples['results_noise'][first_valid_simulation],
+                                                torch.ones((N_simulation,)), t, _visited_states=visited_states,
+                                                _prepend='5_mpc_', _title='', _num='_{:05d}'.format(img_frame))
+                    # # Don't plot the means you fucking twat.
+                    # plotting.do_family_of_plots(controlled_params, expect_results_noised, prob_valid_simulations, t,
+                    #                             _visited_states=visited_states,
+                    #                             _prepend='5_mpc_', _title='', _num='_{:05d}'.format(img_frame))
 
-                    _do_controled_plot = True
+                    _do_controled_plot = False
                     if _do_controled_plot:
                         plotting.do_controlled_plot(outer_samples, first_valid_simulation, params, N_simulation,
-                                                    current_state, t, _t,  valid_simulation, threshold, img_frame,
+                                                    current_state, t, _t,  _valid_func, threshold, img_frame,
                                                     visited_states)
 
                     img_frame += 1
                     plt.pause(0.1)
                     plt.close('all')
 
-                    # Remove some images we dont want.
-                    os.system('\\rm -rf ./pdf/mpc_/mpc_trajectory_zoom_valid_controlled_*')
-                    os.system('\\rm -rf ./pdf/mpc_/mpc_trajectory_full_valid_controlled_*')
+                    # # Remove some images we dont want.
+                    # os.system('\\rm -rf ./pdf/mpc_/mpc_trajectory_zoom_valid_controlled_*')
+                    # os.system('\\rm -rf ./pdf/mpc_/mpc_trajectory_full_valid_controlled_*')
+                    # os.system('\\rm -rf ./pdf/mpc_/mpc_parameters_controlled_000*')
+                    # os.system('\\rm -rf ./pdf/mpc_/mpc_policy_controlled_000*')
 
-
-        os.system(ffmpeg_command)
+        # os.system(ffmpeg_command)

@@ -174,7 +174,7 @@ def sample_prior_parameters(_params, _n=None, get_map=False):
     _params.log_p2 = tensor_log(p2)
     _params.log_kappa = tensor_log(kappa)
     _params.log_icu_capacity = tensor_log(.259e-3)  # https://alhill.shinyapps.io/COVID19seir/
-    _params.u = torch.rand((_n, ))
+    _params.u = _sample_from_confidence_interval(0.0, 0.0, 1.0)
 
     return _params
 
