@@ -155,7 +155,7 @@ if __name__ == '__main__':
 
     if experiment_icu_capacity:
 
-        fig, axe = plt.subplots()
+        fig, axe = plt.subplots(figsize=(4, 2.8))
         K = 100
         for capacity_name in ['zero', 'nominal', 'infinite']:
 

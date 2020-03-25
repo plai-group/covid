@@ -146,8 +146,8 @@ def peak_infection_versus_deaths(_axe, _results, _params, label=None, _append=''
     # max_treatable = _params.log_max_treatable.exp().item()
     # _axe.scatter(peak_infected, death_proportion)
     #_axe.plot(max_treatable, max_treatable],
-    _axe.scatter(peak_infected, death_proportion, label=label, linewidth=2.0)
-    _axe.set_xlabel('Peak number infected')
+    _axe.plot(peak_infected, death_proportion, label=label, linewidth=2.0)
+    _axe.set_xlabel('Peak proportion infected')
     _axe.set_ylabel('Proportion of population dead')
     _axe.set_xlim(0)
     _axe.set_ylim(0)
