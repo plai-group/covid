@@ -152,7 +152,6 @@ def run(args):
         trace_weights = {}
         for idx, trace in enumerate(traces):
             # Convert the latent variables that are converted to integer on C++ code.
-            trace.named_variables['school_closure_duration'].value = trace.named_variables['school_closure_duration'].value.int()
             trace.named_variables['shelter_in_place_duration_mean'].value = trace.named_variables['shelter_in_place_duration_mean'].value.int()
             
             dump_parameter_file(sampled_parameters={name : variable.value.item() for name, variable in trace.named_variables.items() if not variable.observed},
