@@ -222,10 +222,12 @@ def do_family_of_plots(noised_parameters, results_noise, valid_simulations, t, _
 
     _zoom_lims = (0.0, 0.1)
 
-    try:
-        os.mkdir('./pdf/{}'.format(_prepend))
-    except:
-        pass
+    try: os.mkdir('./pdf/{}'.format(_prepend))
+    except: pass
+    try: os.mkdir('./pdf/{}/zoom'.format(_prepend))
+    except: pass
+    try: os.mkdir('./pdf/{}/full'.format(_prepend))
+    except: pass
 
     plt.figure(figsize=fig_size_short)
     make_trajectory_plot(plt.gca(), noised_parameters, _visited_states, results_noise, valid_simulations, t, _plot_valid=True)
@@ -233,7 +235,7 @@ def do_family_of_plots(noised_parameters, results_noise, valid_simulations, t, _
         plt.title(_title)
     plt.tight_layout()
     # plt.savefig('./png/{}/{}trajectory_full_valid{}.png'.format(_prepend, _prepend, _num), dpi=dpi)
-    plt.savefig('./pdf/{}/{}trajectory_full_valid{}.pdf'.format(_prepend, _prepend, _num))
+    plt.savefig('./pdf/{}/full/{}trajectory_full_valid{}.pdf'.format(_prepend, _prepend, _num))
 
     plt.figure(figsize=fig_size_short)
     make_trajectory_plot(plt.gca(), noised_parameters, _visited_states, results_noise, valid_simulations, t, _plot_valid=True, _ylim=_zoom_lims)
@@ -241,7 +243,7 @@ def do_family_of_plots(noised_parameters, results_noise, valid_simulations, t, _
         plt.title(_title)
     plt.tight_layout()
     # plt.savefig('./png/{}/{}trajectory_zoom_valid{}.png'.format(_prepend, _prepend, _num), dpi=dpi)
-    plt.savefig('./pdf/{}/{}trajectory_zoom_valid{}.pdf'.format(_prepend, _prepend, _num))
+    plt.savefig('./pdf/{}/zoom/{}trajectory_zoom_valid{}.pdf'.format(_prepend, _prepend, _num))
 
     plt.figure(figsize=fig_size_short)
     make_trajectory_plot(plt.gca(), noised_parameters, _visited_states, results_noise, valid_simulations, t, _plot_valid=None)
@@ -249,7 +251,7 @@ def do_family_of_plots(noised_parameters, results_noise, valid_simulations, t, _
         plt.title(_title)
     plt.tight_layout()
     # plt.savefig('./png/{}/{}trajectory_full_all{}.png'.format(_prepend, _prepend, _num), dpi=dpi)
-    plt.savefig('./pdf/{}/{}trajectory_full_all{}.pdf'.format(_prepend, _prepend, _num))
+    plt.savefig('./pdf/{}/full/{}trajectory_full_all{}.pdf'.format(_prepend, _prepend, _num))
 
     plt.figure(figsize=fig_size_short)
     make_trajectory_plot(plt.gca(), noised_parameters, _visited_states, results_noise, valid_simulations, t, _plot_valid=None, _ylim=_zoom_lims)
@@ -257,7 +259,7 @@ def do_family_of_plots(noised_parameters, results_noise, valid_simulations, t, _
         plt.title(_title)
     plt.tight_layout()
     # plt.savefig('./png/{}/{}trajectory_zoom_all{}.png'.format(_prepend, _prepend, _num), dpi=dpi)
-    plt.savefig('./pdf/{}/{}trajectory_zoom_all{}.pdf'.format(_prepend, _prepend, _num))
+    plt.savefig('./pdf/{}/zoom/{}trajectory_zoom_all{}.pdf'.format(_prepend, _prepend, _num))
 
     plt.figure(figsize=fig_size_short)
     make_parameter_plot(plt.gca(), noised_parameters, valid_simulations)
@@ -265,7 +267,7 @@ def do_family_of_plots(noised_parameters, results_noise, valid_simulations, t, _
         plt.title(_title)
     plt.tight_layout()
     # plt.savefig('./png/{}/{}parameters{}.png'.format(_prepend, _prepend, _num), dpi=dpi)
-    plt.savefig('./pdf/{}/{}parameters{}.pdf'.format(_prepend, _prepend, _num))
+    plt.savefig('./pdf/{}/policy/{}parameters{}.pdf'.format(_prepend, _prepend, _num))
 
     plt.figure(figsize=fig_size_small)
     make_policy_plot(plt.gca(), noised_parameters, alpha, beta, valid_simulations, typical_u, typical_alpha, typical_beta)
@@ -273,13 +275,13 @@ def do_family_of_plots(noised_parameters, results_noise, valid_simulations, t, _
         plt.title(_title)
     plt.tight_layout()
     # plt.savefig('./png/{}/{}policy{}.png'.format(_prepend, _prepend, _num), dpi=dpi)
-    plt.savefig('./pdf/{}/{}policy{}.pdf'.format(_prepend, _prepend, _num))
+    plt.savefig('./pdf/{}/policy/{}policy{}.pdf'.format(_prepend, _prepend, _num))
 
     plt.pause(0.1)
 
 
-def nmc_plot(outer_samples, _threshold, _prepend='nmc_'):
-    nmc_fig = plt.figure(10, fig_size_small)
+def nmc_plot(outer_samples, _threshold, _prepend='nmc_', _append=''):
+    nmc_fig = plt.figure(10, fig_size_short)
     nmc_axe = plt.gca()
     plt.plot((0, 1), (0.9, 0.9), 'k:')
     plt.ylim((-0.05, 1.05))
@@ -292,7 +294,7 @@ def nmc_plot(outer_samples, _threshold, _prepend='nmc_'):
     _c = _c_l[(np.asarray(outer_samples['p_valid']) > _threshold).astype(np.int)]
 
     nmc_axe.scatter(outer_samples['u'], np.asarray(outer_samples['p_valid']), c=_c)
-    plt.savefig('./pdf/{}/{}nmc_parameters.pdf'.format(_prepend, _prepend))
+    plt.savefig('./pdf/{}/{}nmc_parameters_{}.pdf'.format(_prepend, _prepend, _append))
     plt.pause(0.1)
     # plt.close(10)
 

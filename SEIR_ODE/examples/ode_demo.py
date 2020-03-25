@@ -229,7 +229,7 @@ if __name__ == '__main__':
         # Do some plotting.
         _sims_to_plot_store = dc(plotting._sims_to_plot)
         plotting._sims_to_plot = np.arange(0, len(u_sweep))
-        plotting.nmc_plot(outer_samples, threshold)
+        plotting.nmc_plot(outer_samples, threshold, _prepend='nmc_', _append='0')
         plotting.do_family_of_plots(controlled_params, expect_results_noised, prob_valid_simulations, t, _prepend='nmc_')
         plotting._sims_to_plot = dc(_sims_to_plot_store)
 
@@ -365,7 +365,7 @@ if __name__ == '__main__':
                 if _t % _plot_frequency == 0:
 
                     # Do NMC plot.
-                    plotting.nmc_plot(outer_samples, threshold, _prepend='mpc_')
+                    plotting.nmc_plot(outer_samples, threshold, _prepend='mpc_', _append='_{:05d}'.format(img_frame))
 
                     # Trajectory plot.
                     plotting.do_family_of_plots(controlled_params, expect_results_noised, prob_valid_simulations, t,
@@ -383,7 +383,8 @@ if __name__ == '__main__':
                     plt.close('all')
 
                     # Remove some images we dont want.
-                    os.system('\\rm -rf ./pdf/mpc_/mpc_trajectory_zoom_all_controlled_*')
+                    os.system('\\rm -rf ./pdf/mpc_/mpc_trajectory_zoom_valid_controlled_*')
+                    os.system('\\rm -rf ./pdf/mpc_/mpc_trajectory_full_valid_controlled_*')
 
 
         os.system(ffmpeg_command)
