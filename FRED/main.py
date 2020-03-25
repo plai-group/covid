@@ -102,8 +102,6 @@ def init(config, seed):
 
     # Set the city fips and days
     base_params['fips'] = args._fips
-    if args.city == 'allegheny' and args.days is None:
-        args.days = 150
 
     if args.days is not None:
         base_params['days'] = args.days
