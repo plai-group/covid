@@ -32,16 +32,16 @@ def my_config():
     debug = False
     dump_simulator_log = True
 
-    # Inference-related parameters
-    num_traces = 10
-    kill_on_zero_likelihood = False
-    constraint_threshold = 0.2
-
     # Simulator parameters
     days = None
     city = 'jefferson'
     assert city in fips_dict
     _fips = fips_dict[city]
+
+    # Inference-related parameters
+    num_traces = 10
+    kill_on_zero_likelihood = False
+    constraint_threshold = 0.1
 
 
 def read_param_file(path):
@@ -102,8 +102,6 @@ def init(config, seed):
 
     # Set the city fips and days
     base_params['fips'] = args._fips
-    if args.city == 'allegheny' and args.days is None:
-        args.days = 150
 
     if args.days is not None:
         base_params['days'] = args.days
@@ -152,7 +150,6 @@ def run(args):
         trace_weights = {}
         for idx, trace in enumerate(traces):
             # Convert the latent variables that are converted to integer on C++ code.
-            trace.named_variables['school_closure_duration'].value = trace.named_variables['school_closure_duration'].value.int()
             trace.named_variables['shelter_in_place_duration_mean'].value = trace.named_variables['shelter_in_place_duration_mean'].value.int()
             
             dump_parameter_file(sampled_parameters={name : variable.value.item() for name, variable in trace.named_variables.items() if not variable.observed},
