@@ -10,8 +10,8 @@ import json
 import zipfile
 import tempfile
 
-model_executable = '/FRED/bin/FRED'
 FRED_HOME = os.environ['FRED_HOME']
+model_executable = f'{FRED_HOME}/bin/FRED'
 HOME = os.environ['HOME']
 USER = os.environ['USER']
 default_params = None
@@ -34,9 +34,9 @@ def my_config():
 
     # Simulator parameters
     days = None
-    city = 'jefferson'
-    assert city in fips_dict
-    _fips = fips_dict[city]
+    county = 'jefferson'
+    assert county in fips_dict
+    _fips = fips_dict[county]
 
     # Inference-related parameters
     num_traces = 10
@@ -100,7 +100,7 @@ def init(config, seed):
     args.out_dir = str(out_dir)
     base_params = read_param_file(args.params_base)
 
-    # Set the city fips and days
+    # Set the county fips and days
     base_params['fips'] = args._fips
 
     if args.days is not None:
@@ -158,6 +158,8 @@ def run(args):
             print(f'likelihood {idx}: {weight}')
             assert weight < 0.2 or weight > 0.8
             trace_weights[idx] = int(weight > 0.5)
+
+        print(f'Average success rate: {np.mean(list(trace_weights.keys()))}')
 
         # Save the trace weights
         with open(os.path.join(args.out_dir, 'weights.json'), 'w') as fp:
