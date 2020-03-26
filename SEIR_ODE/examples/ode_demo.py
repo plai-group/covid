@@ -66,13 +66,13 @@ uncontrolled_parameters = ['log_kappa', 'log_a', 'log_p1', 'log_p2', 'log_p1',
                            'log_p2', 'log_g1', 'log_g2', 'log_g3', 'log_icu_capacity']
 
 # Define the simulation properties.
-T = 500
+T = 1000
 dt = 1.0
 initial_population = 10000
 
 # Define inference settings.
-N_simulation = 100
-N_parameter_sweep = 60
+N_simulation = 1000
+N_parameter_sweep = 45
 
 plotting._sims_to_plot = np.random.randint(0, N_simulation, plotting.n_sims_to_plot)
 
@@ -98,19 +98,24 @@ def valid_simulation(_state, _params):
     :param _state: tensor (N x D):  tensor of the state trajectory.
     :return: tensor (N, ), bool:    tensor of whether each simulation was valid.
     """
-
-    # TODO - this need to be changed such that it keeps the third I compartment value under a threshold.
-
     _n_infected = _state[:, :, 2] + _state[:, :, 3] + _state[:, :, 4]
     _valid = torch.logical_not(torch.any(_n_infected > _params.policy['infection_threshold'], dim=0))
     return _valid
 
 
-def myopic_valid_simulation(_state, _params):
-    length_of_sim = len(_state)
-    planning_window = 100
-    integrate_over = np.min((length_of_sim, planning_window))
-    return valid_simulation(_state[:integrate_over], _params)
+# def myopic_valid_simulation(_state, _params):
+#     """
+#     try and bring the infection under control in a period of time.
+#     :param _state:
+#     :param _params:
+#     :return:
+#     """
+#     length_of_sim = len(_state)
+#     planning_window = 100
+#     integrate_over = np.min((length_of_sim, planning_window))
+#     _n_infected = _state[:, :, 2] + _state[:, :, 3] + _state[:, :, 4]
+#     _valid = torch.logical_not(torch.any(_n_infected[-1, :] > _params.policy['infection_threshold'], dim=0))
+#     return _valid
 
 
 if __name__ == '__main__':
@@ -191,6 +196,7 @@ if __name__ == '__main__':
 
         initial_state = seir.sample_x0(N_simulation, initial_population)
         noised_parameters = seir.sample_prior_parameters(params, N_simulation)
+        noised_parameters.u[:] = 0.0
         results_noise = seir.simulate_seir(initial_state, noised_parameters, dt, T, seir.sample_unknown_parameters)
         valid_simulations = valid_simulation(results_noise, noised_parameters)
 
@@ -299,36 +305,55 @@ if __name__ == '__main__':
         # Analyse the results.
         plt.figure(figsize=plotting.fig_size_short)
         axe = plt.gca()
-
-        plt.scatter((1 - u_sweep), torch.stack(valid_simulations_stochastic), c=plotting.mcd['green'], marker='.', label='Stochastic')
         plt.plot((1 - u_sweep), valid_simulations_deterministic.type(torch.float), c=plotting.mcd['red'], label='Deterministic')
-
-        plt.legend(loc='lower right')
+        plt.plot((0, 1), (0.9, 0.9), 'k:', label='$90\\%$ conf.')
+        plt.legend(loc='lower right', prop={'size': 8})
         plt.xlim((0, 1))
         plt.ylim((-0.02, 1.02))
         plt.grid(True)
-
-        axe.set_xlabel('$\\bar{\\lambda}$: Controlled exposure rate \n relative to uncontrolled exposure rate.')
-        axe.text(0.2, 0.75, s='$\\bar{\\lambda} = (1 - u)\\lambda$', horizontalalignment='center',
+        axe.set_xlabel('$\\hat{R_0}$: Controlled exposure rate \n relative to uncontrolled exposure rate.')
+        axe.text(0.2, 0.67, s='$\\hat{R_0} = (1 - u)R_0$', horizontalalignment='center',
                  bbox=dict(facecolor='white', alpha=0.9, linestyle='-'))
         _xt = plt.xticks()
-        _xt = ['$' + str(int(__xt * 100)) + '\\%\\lambda$' for __xt in list(_xt[0])]
+        _xt = ['$' + str(int(__xt * 100)) + '\\%R_0$' for __xt in list(_xt[0])]
+        plt.xticks((0, 0.2, 0.4, 0.6, 0.8, 1.0), _xt)
+        axe.set_xlim((1.0, 0.0))
+        axe.set_ylim((-0.02, 1.02))
+        plt.ylabel('$p(\\forall_{t > 0} Y_t^{aux}=1 | \\theta)$')
+        plt.tight_layout()
+        plt.pause(0.1)
+        plt.savefig('./pdf/4_stoch_det_/det_parameters.pdf')
+        p = 0
+
+        # Analyse the results.
+        plt.figure(figsize=plotting.fig_size_short)
+        axe = plt.gca()
+        plt.scatter((1 - u_sweep), torch.stack(valid_simulations_stochastic), c=plotting.mcd['green'], marker='.', label='Stochastic')
+        plt.plot((1 - u_sweep), valid_simulations_deterministic.type(torch.float), c=plotting.mcd['red'], label='Deterministic')
+        plt.plot((0, 1), (0.9, 0.9), 'k:', label='$90\\%$ conf.')
+        plt.legend(loc='lower right', prop={'size': 8})
+        plt.xlim((0, 1))
+        plt.ylim((-0.02, 1.02))
+        plt.grid(True)
+        axe.set_xlabel('$\\hat{R_0}$: Controlled exposure rate \n relative to uncontrolled exposure rate.')
+        axe.text(0.2, 0.67, s='$\\hat{R_0} = (1 - u)R_0$', horizontalalignment='center',
+                 bbox=dict(facecolor='white', alpha=0.9, linestyle='-'))
+        _xt = plt.xticks()
+        _xt = ['$' + str(int(__xt * 100)) + '\\%R_0$' for __xt in list(_xt[0])]
         plt.xticks((0, 0.2, 0.4, 0.6, 0.8, 1.0), _xt)
         axe.set_xlim((1.0, 0.0))
         plt.ylabel('$p(\\forall_{t > 0} Y_t^{aux}=1 | \\theta)$')
-
         plt.tight_layout()
         plt.pause(0.1)
-        # plt.savefig('./png/stoch_det_/stoch_det_parameters.png', dpi=plotting.dpi)
-        plt.savefig('./pdf/4_stoch_det_/stoch_det_parameters.pdf')
+        plt.savefig('./pdf/4_stoch_det_/stoch_parameters.pdf')
         p = 0
 
 
         # Now run some sweeps using the estimated values.
-        current_state = seir.sample_x0(3, initial_population)
-        u_sweep = torch.tensor([0.3, 0.4, 0.5])
 
         # Do deterministic 'sweep' and get the results in.
+        current_state = seir.sample_x0(3, initial_population)
+        u_sweep = torch.tensor([0.300, 0.375, 0.450])
         controlled_parameter_values = dc({'u': u_sweep})
         controlled_params = seir.sample_prior_parameters(params, _n=N_parameter_sweep, get_map=True)
         controlled_params.u = u_sweep
@@ -336,31 +361,63 @@ if __name__ == '__main__':
                                                         time_now, controlled_parameter_values,
                                                         valid_simulation,
                                                         _proposal=seir.sample_identity_parameters)
-
-        # Now plot those sweeps.
-        fig = plt.figure(plotting.fig_size_short)
+        fig = plt.figure(figsize=plotting.fig_size_short)
         axe = plt.gca()
         plotting.make_trajectory_plot(axe, controlled_params, None, results_deterministic, torch.ones((len(u_sweep), )), t,
-                                      _plot_valid=None, _ylim=(0.0, 0.15))
+                                      _plot_valid=None, _ylim=(0.0, 0.10))
+        plt.tight_layout()
         plt.savefig('./pdf/4_stoch_det_/det_traj.pdf')
 
         # Now run some sweeps using the estimated values.
         current_state = seir.sample_x0(N_simulation, initial_population)
-        u_sweep = torch.tensor([0.55])
+        u_sweep = torch.tensor([0.375])
         controlled_parameter_values = [dc({'u': _u}) for _u in u_sweep]
         controlled_params = dc(params)
         controlled_params.u = u_sweep
         pool = proc.Pool(processes=proc.cpu_count())
         _, results_stochastic, _ = \
-        seir.parallel_nmc_estimate(pool, current_state, params, time_now, controlled_parameter_values, valid_simulation)
+        seir.parallel_nmc_estimate(pool, current_state, controlled_params, time_now, controlled_parameter_values, valid_simulation)
         pool.close()
-
-        # Now plot those sweeps.
-        fig = plt.figure(plotting.fig_size_short)
+        fig = plt.figure(figsize=plotting.fig_size_short)
         axe = plt.gca()
-        plotting.make_trajectory_plot(axe, controlled_params, None, results_stochastic, torch.ones((len(u_sweep), )), t,
-                                      _plot_valid=None, _ylim=(0.0, 0.15))
-        plt.savefig('./pdf/4_stoch_det_/sto_traj.pdf')
+        plotting.make_trajectory_plot(axe, controlled_params, None, results_stochastic[0], torch.ones((N_simulation, )), t,
+                                      _plot_valid=None, _ylim=(0.0, 0.10))
+        plt.tight_layout()
+        plt.savefig('./pdf/4_stoch_det_/sto_traj_under.pdf')
+
+        # Now run some sweeps using the estimated values.
+        current_state = seir.sample_x0(N_simulation, initial_population)
+        u_sweep = torch.tensor([0.51])
+        controlled_parameter_values = [dc({'u': _u}) for _u in u_sweep]
+        controlled_params = dc(params)
+        controlled_params.u = u_sweep
+        pool = proc.Pool(processes=proc.cpu_count())
+        _, results_stochastic, _ = \
+        seir.parallel_nmc_estimate(pool, current_state, controlled_params, time_now, controlled_parameter_values, valid_simulation)
+        pool.close()
+        fig = plt.figure(figsize=plotting.fig_size_short)
+        axe = plt.gca()
+        plotting.make_trajectory_plot(axe, controlled_params, None, results_stochastic[0], torch.ones((N_simulation, )), t,
+                                      _plot_valid=None, _ylim=(0.0, 0.10))
+        plt.tight_layout()
+        plt.savefig('./pdf/4_stoch_det_/sto_traj_borderline.pdf')
+
+        # Now run some sweeps using the estimated values.
+        current_state = seir.sample_x0(N_simulation, initial_population)
+        u_sweep = torch.tensor([0.6])
+        controlled_parameter_values = [dc({'u': _u}) for _u in u_sweep]
+        controlled_params = dc(params)
+        controlled_params.u = u_sweep
+        pool = proc.Pool(processes=proc.cpu_count())
+        _, results_stochastic, _ = \
+        seir.parallel_nmc_estimate(pool, current_state, controlled_params, time_now, controlled_parameter_values, valid_simulation)
+        pool.close()
+        fig = plt.figure(figsize=plotting.fig_size_short)
+        axe = plt.gca()
+        plotting.make_trajectory_plot(axe, controlled_params, None, results_stochastic[0], torch.ones((N_simulation, )), t,
+                                      _plot_valid=None, _ylim=(0.0, 0.10))
+        plt.tight_layout()
+        plt.savefig('./pdf/4_stoch_det_/sto_traj_safe.pdf')
 
         plt.pause(0.1)
         plt.close('all')
@@ -383,8 +440,8 @@ if __name__ == '__main__':
         ffmpeg_command = 'ffmpeg -y -r 25 -i ./png/mpc_%05d.png -c:v libx264 -vf fps=25 -tune stillimage ./mpc.mp4'
         print('ffmpeg command: ' + ffmpeg_command)
 
-        os.system('\\rm -rf ./pdf/5_mpc_')
-        os.mkdir('./pdf/5_mpc_')
+        # os.system('\\rm -rf ./pdf/5_mpc_')
+        # os.mkdir('./pdf/5_mpc_')
 
         current_state = dc(init_vals)
         visited_states = torch.empty((0, 0, 7))  # torch.tensor(dc(current_state[0])).unsqueeze(0).unsqueeze(0)
@@ -398,7 +455,7 @@ if __name__ == '__main__':
         pool = proc.Pool(proc.cpu_count())
 
         # We don't want to re-plan at every step.  7 = replan every week.  # TODO must match value in plotting.
-        planning_step = np.int(np.round(14.0 / dt))
+        planning_step = np.int(np.round(7.0 / dt))
 
         # Counter for labelling images.
         img_frame = 0
@@ -406,7 +463,9 @@ if __name__ == '__main__':
         # Force all plots.
         plotting._sims_to_plot = np.arange(N_simulation)
 
-        for _t in range(1):  # tqdm(np.arange(0, int(T / dt), step=planning_step)):
+        entering_control = False
+
+        for _t in tqdm(np.arange(0, int(T / dt), step=planning_step)):
 
             # u_sweep = torch.normal(0.5, 0.2, (N_parameter_sweep, )).clamp(0.0, 1.0).sort().values
             u_sweep = torch.linspace(0.0, 1.0, N_parameter_sweep)
@@ -429,7 +488,7 @@ if __name__ == '__main__':
             # Work out which simulations are probabilistically valid.
             threshold = 0.9
             prob_valid_simulations = torch.tensor([(_p > 0.9) for _p in outer_samples['p_valid']]).type(torch.int)
-            first_valid_simulation = np.searchsorted(prob_valid_simulations, threshold)
+            first_valid_simulation = np.min((np.searchsorted(prob_valid_simulations, threshold), N_parameter_sweep - 1))
 
             # The 1 is important being the simulate seir code also returns the initial state...
             # # Pick random continuation.
@@ -477,32 +536,60 @@ if __name__ == '__main__':
             #     print('EXIT')
             #     raise RuntimeError
 
-            # Construct a random continuation as a mixute of the
-            if np.random.rand() < 0.5:
-                # # Dont take an adversarial example.
-                # expect_results_noised = torch.stack(outer_samples['results_noise']).transpose(0, 1)[:,
-                #                         first_valid_simulation].mean(dim=1)
-                # _visited_states = expect_results_noised[1:(planning_step + 1), :]
+            _tag = ''
 
-                # Take radnom next step.
-                _n = np.random.randint(0, N_simulation)
+            # # Pick adversarial examples until the infection threshold is reached.
+            # if (not torch.any(prob_valid_simulations.type(torch.bool))) or entering_control:
+            #
+            #     # Switch to using mypopic control.
+            #     _valid_func = myopic_valid_simulation
+            #
+            #     _tag = '_myopic'
+            #
+            #     # Take radnom next step.
+            #     _n = np.random.randint(0, N_simulation)
+            #
+            #     # We are now taking measures.
+            #     entering_control = True
+            #
+            # else:
+            # Do take an adversarial example.
 
-            else:
-                # Do take an adversarial example.
+            if _t > 199:
                 try:
-                    _tr = outer_samples['results_noise'][first_valid_simulation][planning_step + 1]
-                    _I = _tr[:, 2] + _tr[:, 3] + _tr[:, 4]
-                    _n = _I.argmax()
+                    if np.random.rand() < 0.2:
+                        _tr = outer_samples['results_noise'][first_valid_simulation][planning_step + 1]
+                        _I = _tr[:, 2] + _tr[:, 3] + _tr[:, 4]
+                        _n = _I.argmax()
+                    else:
+                        _n = np.random.randint(0, N_simulation - 1)
                 except:
-                    print('')
-                    _n = np.random.randint(0, N_simulation)
+                    _n = np.random.randint(0, N_simulation-1)
+                    print('barf - 1.')
+            else:
+                _tr = outer_samples['results_noise'][first_valid_simulation][planning_step + 1]
+                _I = _tr[:, 2] + _tr[:, 3] + _tr[:, 4]
+                _n = _I.argmax()
 
-            try:
-                _visited_states = outer_samples['results_noise'][first_valid_simulation][1:(planning_step + 1), _n]
-            except:
-                first_valid_simulation = np.random.randint(0, len(outer_samples['results_noise'][first_valid_simulation]-1))
+            #
+            # try:
+            #     _visited_states = outer_samples['results_noise'][first_valid_simulation][1:(planning_step + 1), _n]
+            # except:
+            #     first_valid_simulation = np.random.randint(0, N_parameter_sweep - 1)
+            #     # first_valid_simulation = np.random.randint(0, len(outer_samples['results_noise'][first_valid_simulation]-1))
+            #     print('barf - 2.')
+            #
+            # try:
+            #     _visited_states = outer_samples['results_noise'][first_valid_simulation][1:(planning_step + 1), _n]
+            # except:
+            #     first_valid_simulation = 0
+            #     _visited_states = outer_samples['results_noise'][first_valid_simulation][1:(planning_step + 1), _n]
+            #     print('barf - 3.')
 
             _visited_states = outer_samples['results_noise'][first_valid_simulation][1:(planning_step + 1), _n]
+
+            print('\nFVS: ' + str(first_valid_simulation))
+            print('n:   ' + str(_n))
 
             current_state[:] = dc(_visited_states[-1])
             if len(visited_states) > 0:
@@ -510,7 +597,7 @@ if __name__ == '__main__':
             else:
                 visited_states = _visited_states.unsqueeze(1)
 
-            visited_states = None  # TODO - REMOVE THIS, JUST FOR HACKING PLOTTING.
+            # visited_states = None  # TODO - REMOVE THIS, JUST FOR HACKING PLOTTING MAKING LINES SOLIC.
 
             # Do plotting.
             do_plot = True
@@ -540,10 +627,21 @@ if __name__ == '__main__':
                                                 _prepend='5_mpc_mean_', _title='', _num='_{:05d}'.format(img_frame))
 
                     # Trajectory plot.
+                    plotting._sims_to_plot = np.random.randint(0, N_parameter_sweep-1, 50)
                     controlled_params.u = torch.ones((N_simulation,)) * u_sweep[first_valid_simulation]
                     plotting.do_family_of_plots(controlled_params, outer_samples['results_noise'][first_valid_simulation],
                                                 torch.ones((N_simulation,)), t, _visited_states=visited_states,
-                                                _prepend='5_mpc_', _title='', _num='_{:05d}'.format(img_frame))
+                                                _prepend='5_mpc_', _title='', _num='_control{}_{:05d}'.format(_tag, img_frame),
+                                                _shade=True)
+
+                    # plt.figure(figsize=(2, 2))
+                    # plotting.make_trajectory_plot(plt.gca(), controlled_params, None, outer_samples['results_noise'][first_valid_simulation],
+                    #                                 torch.ones((N_simulation,)), t, _plot_valid=None, _ylim=(0.0, 0.025), _shade=True)
+                    # if _title is not None:
+                    #     plt.title(_title)
+                    # plt.tight_layout()
+                    # # plt.savefig('./png/{}/{}trajectory_zoom_all{}.png'.format(_prepend, _prepend, _num), dpi=dpi)
+                    # plt.savefig('./pdf/{}/zoom/{}trajectory_zoom_all{}.pdf'.format('5_mpc_', '5_mpc_', '_control{}_{:05d}'.format(_tag, img_frame)))
 
                     _do_controled_plot = False
                     if _do_controled_plot:

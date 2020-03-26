@@ -231,9 +231,9 @@ def sample_identity_parameters(_params, _n=None):
 
 def policy_tradeoff(_params):
     # Do u / R0 plotting.
-    n_sweep = 501
+    n_sweep = 1001
     u = np.square(1 - _params.u)  # 1-u because u is a _reduction_.
-    alpha = np.linspace(0, 3.0, num=n_sweep)
+    alpha = np.linspace(0, 5.0, num=n_sweep)
     beta = np.zeros((len(u), n_sweep))
     for _u in range(len(u)):
         for _a in range(len(alpha)):
