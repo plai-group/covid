@@ -14,6 +14,8 @@ import io
 from colormap import hex2rgb
 from types import SimpleNamespace
 from sacred import Experiment
+from plot_threshold import plot
+from matplotlib.colors import ListedColormap
 
 ex = Experiment()
 
@@ -153,57 +155,104 @@ def param_data_from_simulation_files(simulation_dir):
     return param_data
 
 
-def plot(dset, file_path, opacity=True):
+def get_bins(data, discrete=False, num_bins=30):
+    if discrete:
+        left_of_first_bin = data.min() - 0.5
+        right_of_last_bin = data.max() + 0.5
+        return np.arange(left_of_first_bin, right_of_last_bin + 1, 1)
+    else:
+        return np.linspace(data.min(), data.max(), num_bins)
+
+
+def get_gradient_colormap(color_rgb, alpha=False):
+    if alpha:
+        # Single color with changing alpha channel
+        newcolors = np.zeros((256, 4))
+        newcolors[:, :3] = color_rgb
+        newcolors[:, 3] = np.linspace(0, 1, 256)
+    else:
+        # Single color gradually getting white with alpha always 1
+        newcolors = np.ones((256, 4))
+        newcolors[:, 0] = np.linspace(1, color_rgb[0], 256)
+        newcolors[:, 1] = np.linspace(1, color_rgb[1], 256)
+        newcolors[:, 2] = np.linspace(1, color_rgb[2], 256)
+    newcmp = ListedColormap(newcolors)
+    return newcmp
+
+
+def plot_hist(dset, file_path, color, opacity=True, label=None, title=None):
     num_params = len(params_order)
     fig = plt.figure(figsize=set_size('current', fraction=1.2, subplots=(num_params, num_params)))
-    ax = plt.subplot(111)
-    ax.text(0, 0, 'HW: Hand Washing\n', va='top', ha='right')
 
-    optimality = dset[:, num_params]
+    # Compute vmin and vmax
+    vmin = len(dset)
+    vmax = 0
+    for i in range(num_params):
+        for j in range(i):
+            x_vals = dset[:, j]
+            y_vals = dset[:, i]
+            xbins = get_bins(x_vals, discrete='duration' in params_order[j])
+            ybins = get_bins(y_vals, discrete='duration' in params_order[i])
+
+            H, _, _ = np.histogram2d(x_vals, y_vals, bins=[xbins, ybins])
+            vmax = max(vmax, H.max())
+            vmin = min(vmin, H.min())
+
+    # Plot the 2d histograms
     for i in range(num_params):
         for j in range(i):
             ax = plt.subplot(num_params, num_params, 1 + (i-1)*num_params + j)
-            # if i == num_params-1:
-            #     ax.set_xlabel(plot_labels[params_order[j]])
             ax.set_xticklabels([])
             if j == 0:
-                ax.set_ylabel(plot_labels[params_order[i]], labelpad=35, rotation=-30)
+                ax.set_ylabel(plot_labels[params_order[i]], labelpad=45, rotation=-30)
             else:
                 ax.set_yticklabels([])
             x_vals = dset[:, j]
             y_vals = dset[:, i]
-            ax.scatter(x_vals[optimality==1], y_vals[optimality==1], lw=0, color=muted_colours_dict['green'],
-                        alpha=0.4 if opacity else 1)
-            ax.scatter(x_vals[optimality==0], y_vals[optimality==0], lw=0, color=muted_colours_dict['red'],
-                        alpha=0.4 if opacity else 1)
+
+            xbins = get_bins(x_vals, discrete='duration' in params_order[j])
+            ybins = get_bins(y_vals, discrete='duration' in params_order[i])
+            counts, xedges, yedges, im = ax.hist2d(x_vals, y_vals, bins=[xbins, ybins],
+                                                   cmap=get_gradient_colormap(muted_colours_dict[color]),
+                                                   vmax=vmax, vmin=vmin)
     
-    # Draw the last row
+    # Plot the last row
     i = num_params
     for j in range(num_params):
         ax = plt.subplot(num_params, num_params, 1 + (num_params-1)*num_params + j)
         ax.set_xlabel(plot_labels[params_order[j]])
         x_vals = dset[:, j]
-        if np.sum(optimality == 1) > 0:
-            ax.hist(x_vals[optimality==1], lw=0, color=muted_colours_dict['green'],
-                    alpha=0.6 if opacity else 1, label='Effective policies' if j == 0 else None)
-        if np.sum(optimality == 0) > 0:
-            ax.hist(x_vals[optimality==0], lw=0, color=muted_colours_dict['red'],
-                    alpha=0.6 if opacity else 1, label='Ineffective policies' if j == 0 else None)
-        ax.yaxis.set_visible(False)
+        bins = None
+
+        bins = get_bins(x_vals, discrete='duration' in params_order[j])
+        counts, bins, _ = ax.hist(x_vals, bins=bins, lw=0, color=muted_colours_dict[color],
+                                  alpha=0.6 if opacity else 1, label=label if j == 0 else None)
+        _range = [np.min(x_vals), np.max(x_vals)]
+        bin_width = bins[1] - bins[0]
+        ax.plot(_range, [len(x_vals) / (_range[1] - _range[0]) * bin_width]*2,
+                linestyle='--', color='black')
+
+        #ax.yaxis.set_visible(False)
         if j == 0:
             handles, labels = ax.get_legend_handles_labels()
 
-    fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.89, 0.95), shadow=False, frameon=False, ncol=1, fontsize=10)
+    fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.8, 0.9), shadow=False, frameon=False, ncol=1, fontsize=10)
     
-    plt.subplots_adjust(top = 1, bottom = 0, right = 1, left = 0, 
-            hspace = 0, wspace = 0)
-    fig.tight_layout()
+    if title is not None:
+        fig.suptitle(title)
+
+
+    fig.subplots_adjust(bottom=0.15, top=0.9, left=0.17, right=0.9,
+                        wspace=0.2, hspace=0.2)
+    cb_ax = fig.add_axes([0.92, 0.15, 0.02, 0.75])
+    cbar = fig.colorbar(im, cax=cb_ax)
+
     fig.savefig(file_path)
 
 
 def run(args):
     if False:
-        trace_files = args.exp_dir.glob('sim*/traces')
+        trace_files = list(args.exp_dir.glob('sim*/traces'))
         dset = None
         for trace_file in tqdm(trace_files):
             print()
@@ -213,11 +262,11 @@ def run(args):
             else:
                 dset = np.concatenate([dset, param_data_from_traces(str(trace_file))])
     else:
-        simulation_dirs = args.exp_dir.glob('sim*.zip')
+        simulation_dirs = list(args.exp_dir.glob('sim*.zip'))
         full_dset = None
         for simulation_dir in tqdm(simulation_dirs):
-            print()
-            print(f'Loading {simulation_dir}')
+            #print()
+            #print(f'Loading {simulation_dir}')
             if full_dset is None:
                 full_dset = param_data_from_simulation_files(str(simulation_dir))
             else:
@@ -225,10 +274,15 @@ def run(args):
 
     optimality = full_dset[:, -1]
 
-    plot(full_dset, file_path=str(args.out_dir / f'scatter_{args.exp_dir.name}.pdf'))
-    print(f'{np.sum(optimality == 1) / len(full_dset) * 100:.2f}% satisfied')
-    plot(full_dset[optimality==1], file_path=str(args.out_dir / f'scatter_success_{args.exp_dir.name}.pdf'), opacity=False)
-    plot(full_dset[optimality==0], file_path=str(args.out_dir / f'scatter_failure_{args.exp_dir.name}.pdf'), opacity=False)
+    success_rate = f'{np.sum(optimality == 1) / len(full_dset) * 100:.2f}% satisfied'
+    print(success_rate)
+    plot_hist(full_dset[optimality==1], file_path=str(args.out_dir / f'hist_{args.exp_dir.name}_success.pdf'),
+              color='green', label='Effective policies', title=None)
+    plot_hist(full_dset[optimality==0], file_path=str(args.out_dir / f'hist_{args.exp_dir.name}_failure.pdf'),
+              color='red', label='Ineffective policies', title=None)
+
+    s = f'scatter_success_{args.exp_dir.name}.pdf'
+    print(f'saved to {s}')
 
 @ex.automain
 def command_line_entry(_run,_config, _seed):
