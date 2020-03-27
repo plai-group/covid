@@ -55,6 +55,11 @@ plot_labels = {'school_closure_ar_threshold': 'School closure\nattack rate\nthre
                'isolation_rate': 'Isolation rate',
                'shelter_in_place_duration_mean': 'Shelter in place\nduration mean',
                'shelter_in_place_compliance': 'Shelter in place\ncompliance'}
+plot_ticks = {'school_closure_ar_threshold': [0.01, 0.21],
+              'hand_washing_compliance': [0, 1],
+              'isolation_rate': [0, 1],
+              'shelter_in_place_duration_mean': [0, 14],
+              'shelter_in_place_compliance': [0, 1]}
 
 @ex.config
 def my_config():
@@ -185,67 +190,85 @@ def plot_hist(dset, file_path, color, opacity=True, label=None, title=None):
     fig = plt.figure(figsize=set_size('current', fraction=1.2, subplots=(num_params, num_params)))
 
     # Compute vmin and vmax
-    vmin = len(dset)
-    vmax = 0
+    vmin_unit = len(dset)
+    vmax_unit = 0
     for i in range(num_params):
         for j in range(i):
             x_vals = dset[:, j]
             y_vals = dset[:, i]
             xbins = get_bins(x_vals, discrete='duration' in params_order[j])
             ybins = get_bins(y_vals, discrete='duration' in params_order[i])
+            bin_size = 1 / (len(xbins)-1) / (len(ybins)-1)
 
             H, _, _ = np.histogram2d(x_vals, y_vals, bins=[xbins, ybins])
-            vmax = max(vmax, H.max())
-            vmin = min(vmin, H.min())
+            vmax_unit = max(vmax_unit, H.max() / bin_size)
+            vmin_unit = min(vmin_unit, H.min() / bin_size)
 
     # Plot the 2d histograms
     for i in range(num_params):
         for j in range(i):
-            ax = plt.subplot(num_params, num_params, 1 + (i-1)*num_params + j)
-            ax.set_xticklabels([])
-            if j == 0:
-                ax.set_ylabel(plot_labels[params_order[i]], labelpad=45, rotation=-30)
-            else:
-                ax.set_yticklabels([])
             x_vals = dset[:, j]
             y_vals = dset[:, i]
+            ax = plt.subplot(num_params, num_params, 1 + (i-1)*num_params + j)
+            ax.set_xticks([])
+            if j == 0:
+                ax.set_ylabel(plot_labels[params_order[i]], labelpad=40, rotation=-30)
+                ax.set_yticks(plot_ticks[params_order[i]])
+            else:
+                ax.set_yticks([])
 
             xbins = get_bins(x_vals, discrete='duration' in params_order[j])
             ybins = get_bins(y_vals, discrete='duration' in params_order[i])
+            bin_size = 1 / (len(xbins)-1) / (len(ybins)-1)
             counts, xedges, yedges, im = ax.hist2d(x_vals, y_vals, bins=[xbins, ybins],
                                                    cmap=get_gradient_colormap(muted_colours_dict[color]),
-                                                   vmax=vmax, vmin=vmin)
+                                                   vmax=vmax_unit * bin_size, vmin=vmin_unit * bin_size)
     
-    # Plot the last row
+    # Compute ymax and ymin (for the last row histograms)
     i = num_params
+    ymin = len(dset)
+    ymax = 0
     for j in range(num_params):
+        x_vals = dset[:, j]
+        bins = get_bins(x_vals, discrete='duration' in params_order[j], num_bins=16)
+        counts, _ = np.histogram(x_vals, bins=bins)
+
+        ymax = max(ymax, counts.max())
+        ymin = min(ymin, counts.min())
+
+    # Plot the last row
+    for j in range(num_params):
+        x_vals = dset[:, j]
         ax = plt.subplot(num_params, num_params, 1 + (num_params-1)*num_params + j)
         ax.set_xlabel(plot_labels[params_order[j]])
-        x_vals = dset[:, j]
+        ax.set_xticks(plot_ticks[params_order[j]])
         bins = None
 
-        bins = get_bins(x_vals, discrete='duration' in params_order[j])
+        bins = get_bins(x_vals, discrete='duration' in params_order[j], num_bins=15)
         counts, bins, _ = ax.hist(x_vals, bins=bins, lw=0, color=muted_colours_dict[color],
                                   alpha=0.6 if opacity else 1, label=label if j == 0 else None)
+        ax.set_ylim(ymin, ymax)
+        ax.yaxis.set_visible(False)
         _range = [np.min(x_vals), np.max(x_vals)]
         bin_width = bins[1] - bins[0]
         ax.plot(_range, [len(x_vals) / (_range[1] - _range[0]) * bin_width]*2,
                 linestyle='--', color='black')
-
-        #ax.yaxis.set_visible(False)
         if j == 0:
             handles, labels = ax.get_legend_handles_labels()
 
-    fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.8, 0.9), shadow=False, frameon=False, ncol=1, fontsize=10)
+    #fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.8, 0.9), shadow=False, frameon=False, ncol=1, fontsize=10)
     
     if title is not None:
         fig.suptitle(title)
 
+    # fig.subplots_adjust(bottom=0.15, top=0.9, left=0.17, right=0.9,
+    #                     wspace=0.2, hspace=0.2)
+    # cb_ax = fig.add_axes([0.92, 0.15, 0.02, 0.75])
+    # cbar = fig.colorbar(im, cax=cb_ax)
+    # cb_ax.yaxis.set_visible(False)
 
-    fig.subplots_adjust(bottom=0.15, top=0.9, left=0.17, right=0.9,
+    fig.subplots_adjust(bottom=0.15, top=0.9, left=0.15, right=0.95,
                         wspace=0.2, hspace=0.2)
-    cb_ax = fig.add_axes([0.92, 0.15, 0.02, 0.75])
-    cbar = fig.colorbar(im, cax=cb_ax)
 
     fig.savefig(file_path)
 
@@ -265,13 +288,15 @@ def run(args):
         simulation_dirs = list(args.exp_dir.glob('sim*.zip'))
         full_dset = None
         for simulation_dir in tqdm(simulation_dirs):
-            #print()
-            #print(f'Loading {simulation_dir}')
+            print()
+            print(f'Loading {simulation_dir}')
             if full_dset is None:
                 full_dset = param_data_from_simulation_files(str(simulation_dir))
             else:
                 full_dset = np.concatenate([full_dset, param_data_from_simulation_files(str(simulation_dir))])
-
+        print(f'The whole dataset has {len(full_dset)} samples')
+        full_dset[:, params_order.index('school_closure_ar_threshold')] /= 100 # Convert school closure from percentage to a ratio in [0-1]
+        full_dset = full_dset[:1000000] # Filter out the samples beyond 1M (if any)
     optimality = full_dset[:, -1]
 
     success_rate = f'{np.sum(optimality == 1) / len(full_dset) * 100:.2f}% satisfied'
