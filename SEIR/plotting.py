@@ -8,7 +8,7 @@ import os
 from copy import deepcopy as dc
 
 # Import SEIR module.
-import examples.seir as seir
+import seir as seir
 
 # Limit the number of simulations we plot.
 n_sims_to_plot = 100

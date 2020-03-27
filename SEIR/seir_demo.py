@@ -13,11 +13,8 @@ from types import SimpleNamespace
 from copy import deepcopy as dc
 
 # Import the SEIR module.
-import examples.seir as seir
-import examples.plotting as plotting
-
-# Import custom istarmap.
-# import examples.istarmap
+import seir
+import plotting
 
 # Fix the type of the state tensors.
 float_type = seir.float_type
