@@ -154,36 +154,30 @@ if __name__ == '__main__':
 
             print('\nICU capacity sweep')
 
+            capacities = {
+                'zero': params_controlled.log_icu_capacity - float('inf'),
+                'nominal': params_controlled.log_icu_capacity,
+                'infinite': params_controlled.log_icu_capacity + float('inf'),
+            }
+
             fig = plt.figure(figsize=plotting.fig_size_short)
             axe = plt.gca()
-            K = 100
             for _i, capacity_name in enumerate(['zero', 'nominal', 'infinite']):
 
-                initial_state = seir.sample_x0(K, initial_population)
-                params_controlled = seir.sample_prior_parameters(params, K, get_map=True)
-                params_controlled.u = torch.linspace(0, 1, K)
-                capacity = {
-                    'zero': params_controlled.log_icu_capacity - float('inf'),
-                    'nominal': params_controlled.log_icu_capacity,
-                    'infinite': params_controlled.log_icu_capacity + float('inf'),
-                }[capacity_name]
-                params_controlled.log_icu_capacity = capacity
+                initial_state = seir.sample_x0(N_simulation, initial_population)
+                params_controlled = seir.sample_prior_parameters(params, N_simulation, get_map=True)
+                params_controlled.u = torch.linspace(0, 1, N_simulation)
+                params_controlled.log_icu_capacity = capacities[capacity_name]
                 results_deterministic = seir.simulate_seir(initial_state, params_controlled, dt,
                                                            T, seir.sample_identity_parameters)
+
                 plotting.peak_infection_versus_deaths(axe, results_deterministic, params_controlled,
                                                       label=f'{capacity_name}',
                                                       _c=[plotting.mcd['red'],
                                                           plotting.mcd['blue'],
                                                           plotting.mcd['green']][_i])
 
-                print(capacity_name)
-                print(f'All: {results_deterministic[:, :].sum(dim=-1).mean():0.5f}')
-                print(f'Max critical: {results_deterministic[:, :, 4].max(dim=0)[0].mean():0.5f}')
-                print(f'Number dead: {results_deterministic[-1, :, -1].mean():0.5f}')
-                plt.savefig('./pdf/{}/infected_deaths.pdf'.format('1_deterministic_'))
-
-            print('\n\n')
-
+            plt.savefig('./png/infected_deaths.png')
             plt.close('all')
 
 
@@ -203,9 +197,6 @@ if __name__ == '__main__':
         plotting._sims_to_plot = np.arange(np.alen(valid_simulations))
         plotting.do_family_of_plots(noised_parameters, results_noise, valid_simulations, t, _prepend='2_simulation_', _num='')
         plt.close('all')
-
-        fig, axe = plt.subplots()
-        # plotting.peak_infection_versus_deaths(axe, results_noise, params, _prepend='simulation_')
 
         plt.pause(0.1)
         plt.close('all')
@@ -421,16 +412,6 @@ if __name__ == '__main__':
 
         plt.pause(0.1)
         plt.close('all')
-
-
-
-
-
-
-
-
-
-
 
 
     # DO ITERATIVE REPLANNING: MODEL PREDICTIVE CONTROL ----------------------------------------------------------------

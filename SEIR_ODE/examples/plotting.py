@@ -177,21 +177,23 @@ def peak_infection_versus_deaths(_axe, _results, _params, label=None, _prepend='
     except:
         pass
 
+    print(label)
+    print(f'All: {_results[:, :].sum(dim=-1).mean():0.5f}')
+    print(f'Max critical: {_results[:, :, 4].max(dim=0)[0].mean():0.5f}')
+    print(f'Number dead: {_results[-1, :, -1].mean():0.5f}')
+    plt.savefig('./pdf/{}/infected_deaths.pdf'.format('1_deterministic_'))
+
     populace, s_n, e_n, i_n, r_n = get_statistics(_results)
     initial_pop = populace[0]
     final_pop = populace[-1]
     death_proportion = (initial_pop - final_pop) / initial_pop
     peak_infected = i_n.max(axis=0)
 
-    # max_treatable = _params.log_max_treatable.exp().item()
-    # _axe.scatter(peak_infected, death_proportion)
-    #_axe.plot(max_treatable, max_treatable],
     _axe.plot(peak_infected, death_proportion, label=label, linewidth=2.0, c=_c)
     _axe.set_xlabel('Peak proportion infected')
     _axe.set_ylabel('Total mortality rate')
     _axe.set_xlim(0)
     _axe.set_ylim(0)
-    # plt.savefig('./png/infected_deaths.png')
     plt.legend(loc=2, prop={'size': 8})
     plt.pause(0.1)
     plt.tight_layout()
