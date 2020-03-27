@@ -71,7 +71,7 @@ dt = 1.0
 initial_population = 10000
 
 # Define inference settings.
-N_simulation = 100
+N_simulation = 1000
 N_parameter_sweep = 450
 
 plotting._sims_to_plot = np.random.randint(0, N_simulation, plotting.n_sims_to_plot)
@@ -378,7 +378,7 @@ if __name__ == '__main__':
 
         # Now run some sweeps using the estimated values.
         current_state = seir.sample_x0(N_simulation, initial_population)
-        u_sweep = torch.tensor([0.51])
+        u_sweep = torch.tensor([0.5])
         controlled_parameter_values = [dc({'u': _u}) for _u in u_sweep]
         controlled_params = dc(params)
         controlled_params.u = u_sweep
