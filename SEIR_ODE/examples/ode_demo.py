@@ -38,8 +38,8 @@ experiment_do_single_sim =  False
 experiment_single_rollout = False
 experiment_icu_capacity =   False
 experiment_nmc_example =    False
-experiment_stoch_vs_det =   False
-experiment_mpc_example =    True
+experiment_stoch_vs_det =   True
+experiment_mpc_example =    False
 
 # Define base parameters of SEIR model.
 log_alpha = torch.log(torch.tensor((1 / 5.1, )))
@@ -71,8 +71,8 @@ dt = 1.0
 initial_population = 10000
 
 # Define inference settings.
-N_simulation = 1000
-N_parameter_sweep = 45
+N_simulation = 100
+N_parameter_sweep = 450
 
 plotting._sims_to_plot = np.random.randint(0, N_simulation, plotting.n_sims_to_plot)
 
@@ -344,7 +344,7 @@ if __name__ == '__main__':
 
         # Do deterministic 'sweep' and get the results in.
         current_state = seir.sample_x0(3, initial_population)
-        u_sweep = torch.tensor([0.300, 0.375, 0.450])
+        u_sweep = torch.tensor([0.300, 0.365, 0.450])
         controlled_parameter_values = dc({'u': u_sweep})
         controlled_params = seir.sample_prior_parameters(params, _n=N_parameter_sweep, get_map=True)
         controlled_params.u = u_sweep
@@ -361,7 +361,7 @@ if __name__ == '__main__':
 
         # Now run some sweeps using the estimated values.
         current_state = seir.sample_x0(N_simulation, initial_population)
-        u_sweep = torch.tensor([0.375])
+        u_sweep = torch.tensor([0.365])
         controlled_parameter_values = [dc({'u': _u}) for _u in u_sweep]
         controlled_params = dc(params)
         controlled_params.u = u_sweep

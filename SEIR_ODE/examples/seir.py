@@ -83,9 +83,10 @@ def simulate_seir(_state, _params, _dt, _t, _noise_func):
     """
     _state = dc(_state)
     _state_history = [dc(_state)]
+    _params_noised = _noise_func(_params)  # Note - moved the noise function between these two lines.
     for _ in range(int(np.round(_t/_dt))):
         _n = torch.sum(_state, dim=1)
-        _grad = get_diff(_state, _noise_func(_params))
+        _grad = get_diff(_state, _params_noised)  # Note - moved the noise function between these two lines.
         _state += _grad * _dt
         _new_n = torch.sum(_state, dim=1)
 
