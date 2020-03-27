@@ -465,10 +465,12 @@ if __name__ == '__main__':
 
         entering_control = False
 
+        plt.switch_backend('agg')
+
         for _t in tqdm(np.arange(0, int(T / dt), step=planning_step)):
 
-            # u_sweep = torch.normal(0.5, 0.2, (N_parameter_sweep, )).clamp(0.0, 1.0).sort().values
-            u_sweep = torch.linspace(0.0, 1.0, N_parameter_sweep)
+            u_sweep = torch.normal(0.5, 0.2, (N_parameter_sweep, )).clamp(0.0, 1.0).sort().values
+            # u_sweep = torch.linspace(0.0, 1.0, N_parameter_sweep)
 
             outer_samples = {'u': u_sweep,
                              'p_valid': [],
@@ -555,23 +557,35 @@ if __name__ == '__main__':
             # else:
             # Do take an adversarial example.
 
-            if _t > 199:
-                try:
-                    if np.random.rand() < 0.2:
-                        _tr = outer_samples['results_noise'][first_valid_simulation][planning_step + 1]
-                        _I = _tr[:, 2] + _tr[:, 3] + _tr[:, 4]
-                        _n = _I.argmax()
-                    else:
-                        _n = np.random.randint(0, N_simulation - 1)
-                except:
-                    _n = np.random.randint(0, N_simulation-1)
-                    print('barf - 1.')
+            print('\nFVS: ' + str(first_valid_simulation))
+
+            if _t > 200:
+                # try:
+                #     if np.random.rand() < 0.9:
+                #         _tr = outer_samples['results_noise'][first_valid_simulation][planning_step + 1]
+                #         _I = _tr[:, 2] + _tr[:, 3] + _tr[:, 4]
+                #         _n = _I.argmax()
+                #     else:
+                #         _n = np.random.randint(0, N_simulation - 1)
+                # except:
+                #     _n = np.random.randint(0, N_simulation-1)
+                #     print('barf - 1.')
+                # _visited_states = outer_samples['results_noise'][first_valid_simulation][1:(planning_step + 1), _n]
+
+                _n = np.random.randint(0, N_simulation - 1)
+                _visited_states = outer_samples['results_noise'][first_valid_simulation][1:(planning_step + 1), _n]
+
+
+                # _visited_states = outer_samples['results_noise'][first_valid_simulation].median(dim=1)[0][1:(planning_step + 1)]
+
             else:
                 _tr = outer_samples['results_noise'][first_valid_simulation][planning_step + 1]
                 _I = _tr[:, 2] + _tr[:, 3] + _tr[:, 4]
                 _n = _I.argmax()
+                _visited_states = outer_samples['results_noise'][first_valid_simulation][1:(planning_step + 1), _n]
+                print('n:   ' + str(_n))
 
-            #
+                #
             # try:
             #     _visited_states = outer_samples['results_noise'][first_valid_simulation][1:(planning_step + 1), _n]
             # except:
@@ -585,11 +599,6 @@ if __name__ == '__main__':
             #     first_valid_simulation = 0
             #     _visited_states = outer_samples['results_noise'][first_valid_simulation][1:(planning_step + 1), _n]
             #     print('barf - 3.')
-
-            _visited_states = outer_samples['results_noise'][first_valid_simulation][1:(planning_step + 1), _n]
-
-            print('\nFVS: ' + str(first_valid_simulation))
-            print('n:   ' + str(_n))
 
             current_state[:] = dc(_visited_states[-1])
             if len(visited_states) > 0:
@@ -609,22 +618,22 @@ if __name__ == '__main__':
                     # Do NMC plot.
                     plotting.nmc_plot(outer_samples, threshold, _prepend='5_mpc_', _append='_{:05d}'.format(img_frame))
 
-                    # Do policy plot.
-                    plt.figure(figsize=plotting.fig_size_small)
-                    alpha, beta, typical_u, typical_alpha, typical_beta = seir.policy_tradeoff(controlled_params)
-                    plotting.make_policy_plot(plt.gca(), controlled_params, alpha, beta, prob_valid_simulations,
-                                              typical_u, typical_alpha, typical_beta)
-                    if _title is not None:
-                        plt.title(_title)
-                    plt.tight_layout()
-                    # plt.savefig('./png/{}/{}policy{}.png'.format(_prepend, _prepend, _num), dpi=dpi)
-                    plt.savefig('./pdf/{}/policy/{}policy{}.pdf'.format('5_mpc_', '5_mpc_full_', '_{:05d}'.format(img_frame)))
+                    # # Do policy plot.
+                    # plt.figure(figsize=plotting.fig_size_small)
+                    # alpha, beta, typical_u, typical_alpha, typical_beta = seir.policy_tradeoff(controlled_params)
+                    # plotting.make_policy_plot(plt.gca(), controlled_params, alpha, beta, prob_valid_simulations,
+                    #                           typical_u, typical_alpha, typical_beta)
+                    # if _title is not None:
+                    #     plt.title(_title)
+                    # plt.tight_layout()
+                    # # plt.savefig('./png/{}/{}policy{}.png'.format(_prepend, _prepend, _num), dpi=dpi)
+                    # plt.savefig('./pdf/{}/policy/{}policy{}.pdf'.format('5_mpc_', '5_mpc_full_', '_{:05d}'.format(img_frame)))
 
-                    # Don't plot the means you fucking twat.
-                    expect_results_noised = torch.stack(outer_samples['results_noise']).transpose(0, 1).mean(dim=2)
-                    plotting.do_family_of_plots(controlled_params, expect_results_noised, torch.ones((N_parameter_sweep, )),
-                                                t, _visited_states=visited_states,
-                                                _prepend='5_mpc_mean_', _title='', _num='_{:05d}'.format(img_frame))
+                    # # Don't plot the means you fucking twat.
+                    # expect_results_noised = torch.stack(outer_samples['results_noise']).transpose(0, 1).mean(dim=2)
+                    # plotting.do_family_of_plots(controlled_params, expect_results_noised, torch.ones((N_parameter_sweep, )),
+                    #                             t, _visited_states=visited_states,
+                    #                             _prepend='5_mpc_mean_', _title='', _num='_{:05d}'.format(img_frame))
 
                     # Trajectory plot.
                     plotting._sims_to_plot = np.random.randint(0, N_parameter_sweep-1, 50)
@@ -643,11 +652,11 @@ if __name__ == '__main__':
                     # # plt.savefig('./png/{}/{}trajectory_zoom_all{}.png'.format(_prepend, _prepend, _num), dpi=dpi)
                     # plt.savefig('./pdf/{}/zoom/{}trajectory_zoom_all{}.pdf'.format('5_mpc_', '5_mpc_', '_control{}_{:05d}'.format(_tag, img_frame)))
 
-                    _do_controled_plot = False
-                    if _do_controled_plot:
-                        plotting.do_controlled_plot(outer_samples, first_valid_simulation, params, N_simulation,
-                                                    current_state, t, _t,  _valid_func, threshold, img_frame,
-                                                    visited_states)
+                    # _do_controled_plot = False
+                    # if _do_controled_plot:
+                    #     plotting.do_controlled_plot(outer_samples, first_valid_simulation, params, N_simulation,
+                    #                                 current_state, t, _t,  _valid_func, threshold, img_frame,
+                    #                                 visited_states)
 
                     img_frame += 1
                     plt.pause(0.1)

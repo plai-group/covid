@@ -273,14 +273,6 @@ def do_family_of_plots(noised_parameters, results_noise, valid_simulations, t, _
     #
 
     plt.figure(figsize=fig_size_short)
-    make_trajectory_plot(plt.gca(), noised_parameters, _visited_states, results_noise, valid_simulations, t, _plot_valid=None, _shade=_shade)
-    if _title is not None:
-        plt.title(_title)
-    plt.tight_layout()
-    # plt.savefig('./png/{}/{}trajectory_full_all{}.png'.format(_prepend, _prepend, _num), dpi=dpi)
-    plt.savefig('./pdf/{}/full/{}trajectory_full_all{}.pdf'.format(_prepend, _prepend, _num))
-
-    plt.figure(figsize=fig_size_short)
     make_trajectory_plot(plt.gca(), noised_parameters, _visited_states, results_noise, valid_simulations, t, _plot_valid=None, _ylim=_zoom_lims, _shade=_shade)
     if _title is not None:
         plt.title(_title)
@@ -290,6 +282,16 @@ def do_family_of_plots(noised_parameters, results_noise, valid_simulations, t, _
 
     # We dont want to plot valid or params if we have just done a round of control.
     if 'control' not in _num:
+
+        plt.figure(figsize=fig_size_short)
+        make_trajectory_plot(plt.gca(), noised_parameters, _visited_states, results_noise, valid_simulations, t,
+                             _plot_valid=None, _shade=_shade)
+        if _title is not None:
+            plt.title(_title)
+        plt.tight_layout()
+        # plt.savefig('./png/{}/{}trajectory_full_all{}.png'.format(_prepend, _prepend, _num), dpi=dpi)
+        plt.savefig('./pdf/{}/full/{}trajectory_full_all{}.pdf'.format(_prepend, _prepend, _num))
+
         plt.figure(figsize=fig_size_short)
         make_trajectory_plot(plt.gca(), noised_parameters, _visited_states, results_noise, valid_simulations, t, _plot_valid=True, _shade=_shade)
         if _title is not None:
@@ -341,7 +343,7 @@ def nmc_plot(outer_samples, _threshold, _prepend='nmc_', _append=''):
 
     plt.grid(True)
     plt.xlabel('$\\hat{R_0}$: Controlled exposure rate \n relative to uncontrolled exposure rate.')
-    plt.text(0.18, 0.72, s='$\\hat{R_0} = (1 - u)R_0$', horizontalalignment='center',
+    plt.text(0.2, 0.65, s='$\\hat{R_0} = (1 - u)R_0$', horizontalalignment='center',
              bbox=dict(facecolor='white', alpha=0.9, linestyle='-'))
     _xt = plt.xticks()
     _xt = ['$' + str(int(__xt * 100)) + '\%R_0$' for __xt in [0, 0.2, 0.4, 0.6, 0.8, 1.0]]
@@ -384,13 +386,13 @@ def det_plot(results_deterministic, valid_simulations, params, t, _append='', _l
     plt.savefig('./pdf/1_deterministic_/deterministic_trajectory_full_{}.pdf'.format(_append))
 
     fig, ax1 = plt.subplots(figsize=fig_size_short)
-    make_trajectory_plot(plt.gca(), params, None, results_deterministic, valid_simulations, t, _plot_valid="full", _ylim=(0.0, 0.5))
+    make_trajectory_plot(plt.gca(), params, None, results_deterministic, valid_simulations, t, _plot_valid="full", _ylim=(0.0, 0.21))
     ax2 = ax1.twinx()
     ax2.set_ylim(ax1.get_ylim())
     ax2.set_yticks([], [])
     ax2.set_yticks([peak_infected])
     ax2.set_yticklabels(['$I_{max}$\n' + '${:0.3f}$'.format(peak_infected)])
-    if _legend: fig.legend(loc=(0.5, 0.6), ncol=2, prop={'size': 8})
+    if _legend: fig.legend(loc=(0.55, 0.6), ncol=2, prop={'size': 8})
     plt.tight_layout()
     plt.savefig('./pdf/1_deterministic_/deterministic_trajectory_zoom_{}.pdf'.format(_append))
 
