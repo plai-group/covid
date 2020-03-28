@@ -1,32 +1,13 @@
-# COVID-19
+# Planning as Inference in Epidemiological Dynamics Models
+Source code for the paper *Planning as Inference in Epidemiological Dynamics Models*.
 
-## Singularity images
-We have a singularity image that can be used for running the experiments. It has all the dependencies (pyprob, pyprob_cpp, PPX, and FRED simulator) installed.
+# Experiments
+The experiments and running them are explained in detail in their own readme. They are just briefly described here.
 
-To create the singularity image from the recipe files,
-```
-sudo singularity build covid_base.sif covid_base.def
-sudo singularity build covid.sif covid.def
-```
-Once images are successfully created, run `covid.sif` image
-```
-singularity shell <path-to-covid.sif>
-```
-To test that your Singularity image, `cd` to [`tests/pyprob_cpp`](tests/pyprob_cpp) and run the following:
-```
-singularity shell <path-to-covid.sif>
-cmake . && cmake --build .
-python main.py
-```
-It runs a test on a Gaussian with unknown mean model is in C++. It connects the C++ model to pyprob, samples from its prior and prints the empirical mean and standard deviation of the samples.
+## [SEIR](SEIR/)
+SEIR (Susceptible-Exposed-Infectious-Recovered) models are a class of compartmental models in epidemiology. Our experiment is on a SEI<sup>3</sup>R variant.
 
-## [pyprob_cpp](https://github.com/plai-group/pyprob_cpp)
-It is a C++ interface to pyprob.
+## [FRED](FRED/)
+FRED (A Framework for Reconstructing Epidemiological Dynamics) is an open source agent-based simulator for epidemiological dynamics. It simulates each person separately with its own properties. The spread of a disease with its own user-defined parameters is then simulated through interaction of the simulated people.
 
-## [PPX](https://github.com/plai-group/ppx)
-The protocol over which pyprob and pyprob_cpp communicate.
-
-## [pyprob](https://github.com/plai-group/pyprob)
-
-## [FRED simulator](https://github.com/plai-group/FRED)
-An agent-based simulator of epidemics in C++.
+## Publication
