@@ -118,39 +118,41 @@ def make_trajectory_plot(_axe, _params, _results_visited, _results_noise, _valid
     if not _shade:
         [_axe.plot(_t[_t_idx_current - _s_idx_current:] - 1, _s_n[:, _i], c=mcd['green'],     linestyle=_ls, alpha=np.min((_alphas[_i], 1.0)), label='$S_t$') for _i in __sims_to_plot]  # np.int(np.round(__t / _params.dt))
         [_axe.plot(_t[_t_idx_current - _s_idx_current:] - 1, _e_n[:, _i], c=mcd['blue'],      linestyle=_ls, alpha=np.min((_alphas[_i], 1.0)), label='$E_t$') for _i in __sims_to_plot]
-        [_axe.plot(_t[_t_idx_current - _s_idx_current:] - 1, _i_n[:, _i], c=mcd['red'],       linestyle=_ls, alpha=np.min((_alphas[_i], 1.0)), label='$I_t$', zorder=10000) for _i in __sims_to_plot]
+        [_axe.plot(_t[_t_idx_current - _s_idx_current:] - 1, _i_n[:, _i], c=mcd['red'],       linestyle=_ls, alpha=np.min((2.0*_alphas[_i], 1.0)), label='$I_t$', zorder=10000) for _i in __sims_to_plot]
         [_axe.plot(_t[_t_idx_current - _s_idx_current:] - 1, _r_n[:, _i], c=mcd['purple'],    linestyle=_ls, alpha=np.min((_alphas[_i], 1.0)), label='$R_t$') for _i in __sims_to_plot]
         [_axe.plot(_t[_t_idx_current - _s_idx_current:] - 1, _p_n[:, _i], 'k:', alpha=np.min((_alphas[_i], 1.0)), label='$N_t$') for _i in __sims_to_plot]
     else:
         _m = np.median(_p_n, axis=1)
         _uq = np.quantile(_p_n, 0.9, axis=1)
         _lq = np.quantile(_p_n, 0.1, axis=1)
-        _axe.fill_between(_t[_t_idx_current - _s_idx_current:], _lq, _uq, color='k', alpha=0.5)
+        _axe.fill_between(_t[_t_idx_current - _s_idx_current:], _lq, _uq, color='k', alpha=0.2)
         _axe.plot(_t[_t_idx_current - _s_idx_current:], _m, color='k', zorder=-100)
 
         _m = np.median(_s_n, axis=1)
         _uq = np.quantile(_s_n, 0.9, axis=1)
         _lq = np.quantile(_s_n, 0.1, axis=1)
-        _axe.fill_between(_t[_t_idx_current - _s_idx_current:], _lq, _uq, color=mcd['green'], alpha=0.5)
+        _axe.fill_between(_t[_t_idx_current - _s_idx_current:], _lq, _uq, color=mcd['green'], alpha=0.2)
         _axe.plot(_t[_t_idx_current - _s_idx_current:], _m, color=mcd['green'], zorder=-100)
 
         _m = np.median(_r_n, axis=1)
         _uq = np.quantile(_r_n, 0.9, axis=1)
         _lq = np.quantile(_r_n, 0.1, axis=1)
-        _axe.fill_between(_t[_t_idx_current - _s_idx_current:], _lq, _uq, color=mcd['purple'], alpha=0.5)
+        _axe.fill_between(_t[_t_idx_current - _s_idx_current:], _lq, _uq, color=mcd['purple'], alpha=0.2)
         _axe.plot(_t[_t_idx_current - _s_idx_current:], _m, color=mcd['purple'], zorder=-100)
 
         _m = np.median(_e_n, axis=1)
         _uq = np.quantile(_e_n, 0.9, axis=1)
         _lq = np.quantile(_e_n, 0.1, axis=1)
-        _axe.fill_between(_t[_t_idx_current - _s_idx_current:], _lq, _uq, color=mcd['blue'], alpha=0.5)
+        _axe.fill_between(_t[_t_idx_current - _s_idx_current:], _lq, _uq, color=mcd['blue'], alpha=0.2)
         _axe.plot(_t[_t_idx_current - _s_idx_current:], _m, color=mcd['blue'], zorder=-100)
 
         _m = np.median(_i_n, axis=1)
         _uq = np.quantile(_i_n, 0.9, axis=1)
         _lq = np.quantile(_i_n, 0.1, axis=1)
-        _axe.fill_between(_t[_t_idx_current - _s_idx_current:], _lq, _uq, color=mcd['red'], alpha=0.5)
+        _axe.fill_between(_t[_t_idx_current - _s_idx_current:], _lq, _uq, color=mcd['red'], alpha=0.2)
         _axe.plot(_t[_t_idx_current - _s_idx_current:], _m, color=mcd['red'], zorder=-100)
+
+        _ylim = (0.0, 0.025)
 
     _axe.plot(_t.numpy(), (torch.ones_like(_t) * _params.policy['infection_threshold']).numpy(), 'k--', label='$C$', zorder=10000+1)
     # FI.
@@ -262,7 +264,7 @@ def make_policy_plot(_axe, _params, _alpha, _beta, _valid_simulations, _typical_
 def do_family_of_plots(noised_parameters, results_noise, valid_simulations, t, _prepend, _visited_states=None, _t_now=0, _title=None, _num="", _shade=False):
     alpha, beta, typical_u, typical_alpha, typical_beta = seir.policy_tradeoff(noised_parameters)
 
-    _zoom_lims = (0.0, 0.1)
+    _zoom_lims = (0.0, 0.2)
 
     try: os.mkdir('./pdf/{}'.format(_prepend))
     except: pass
