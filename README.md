@@ -10,11 +10,11 @@ The experiments and running them are explained in detail in their own readme. Th
 ## [SEIR](SEIR/)
 SEIR (Susceptible-Exposed-Infectious-Recovered) models are a class of compartmental models in epidemiology. Our experiment is on a SEI<sup>3</sup>R variant.
 
-![alt text](https://github.com/plai-group/covid/blob/master/figures/seir.gif)
+![alt text](./figures/seir.gif)
 
 ## [FRED](FRED/)
 FRED (A Framework for Reconstructing Epidemiological Dynamics) is an open source agent-based simulator for epidemiological dynamics. It simulates each person separately with its own properties. The spread of a disease with its own user-defined parameters is then simulated through interaction of the simulated people.
 
-![alt text](./figures/hist_allegheny_success.svg)
+![alt text](./figures/hist_allegheny_success.png)
 
 ## Publication
