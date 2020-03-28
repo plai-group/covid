@@ -47,7 +47,7 @@ For a list of configurations, look at [main.py](main.py) file.
 FRED simulator has a large number of configurations. They should be stored in a text file. The parameters we used for our experiments can be found [here](https://github.com/plai-group/FRED/blob/FRED-v2.12.0/params). However, the five parameters we impose priors on will be overwritten be a value sampled from their prior. For more information, refer to the paper.
 
 ## Visualizing the results
-Once the experiments are ran, it generates a zip file containing the results (simulator outputs, log files, inference-related files, etc.) The plotting script can then be used to plot an array of 2D histograms of marginal posterior distribution over the policy parameters.
+Once the experiments are ran, it generates a zip file containing the results (simulator outputs, log files, inference-related files, etc.) The plotting script can then be used to plot an array of 2D histograms of marginal posterior distribution over the policy parameters, like [this](../figures/hist_allegheny_success.png).
 ```
 python plot_histogram.py with exp_dir=<results_directory> county=<experiment_name>
 ```
