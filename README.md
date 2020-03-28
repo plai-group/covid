@@ -43,6 +43,11 @@ We couple FRED with [pyprob](https://github.com/pyprob/pyprob), a probabilistic 
     <br>
     <sup> SEIR statistics extracted from a FRED simulation of an *influenza* (not COVID-19) outbreak in Allegheny County. (left) controlled scenarios keeping the number of infectious people below 10% (black dotted line), and (right) uncontrolled scenarios. We plot the median and confidence bands between 3rd and 97th percentile. On the left the confidence interval for infectious people (red) stays below our constraint, verifying that all controlled runs follow our policy, while the confidence band for the uncontrolled scenarios violates our policy constraint.</sup>
 </p>
+<p align="center">
+    <img width="80%" src="./figures/allegheny_map.gif">
+    <br>
+    <sup> Progression of a simulated influenza epidemic in Allegheny county under controlled (left) and uncontrolled (right) scenarios. Each red dot represents a household with at least one infected resident. We see a control policy focusing on hygiene, rapid school closures, and isolation of symptomatics ``flattens the curve'' by slowing the onset of the virus.</sup>
+</p>
 
 ## Publication
 ### Citation
