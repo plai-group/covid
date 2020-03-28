@@ -40,12 +40,12 @@ def get_diff(_state, _params):
     p1 = torch.exp(_params.log_p1)
     p2 = torch.exp(_params.log_p2)
     kappa = torch.exp(_params.log_kappa)
-    icu_capacity = torch.exp(_params.log_icu_capacity)
+    # icu_capacity = torch.exp(_params.log_icu_capacity)
     u = _params.u
 
     _s, _e, _i1, _i2, _i3, _r, _d = tuple(_state[:, i] for i in range(_state.shape[1]))
-    _i3_icu = torch.min(_i3, icu_capacity)
-    _i3_nicu = _i3 - _i3_icu
+    # _i3_icu = torch.min(_i3, icu_capacity)
+    # _i3_nicu = _i3 - _i3_icu
     _n = _state.sum(dim=1)
 
     s_to_e = (1-u) * (b1*_i1 + b2*_i2 + b3*_i3)/_n*_s
@@ -54,8 +54,8 @@ def get_diff(_state, _params):
     i1_to_i2 = p1*_i1
     i2_to_r = g2*_i2
     i2_to_i3 = p2*_i2
-    i3_to_r = g3*_i3_icu
-    i3_to_d = kappa*_i3_icu + _i3_nicu/_params.dt  # so that a step of dt kills all excess ICU patients
+    i3_to_r = g3*_i3  # _i3_icu
+    i3_to_d = kappa * _i3  # kappa*_i3_icu + _i3_nicu/_params.dt  # so that a step of dt kills all excess ICU patients
 
     _d_s = -s_to_e
     _d_e = s_to_e - e_to_i1
@@ -174,7 +174,7 @@ def sample_prior_parameters(_params, _n=None, get_map=False):
     _params.log_p1 = tensor_log(p1)
     _params.log_p2 = tensor_log(p2)
     _params.log_kappa = tensor_log(kappa)
-    _params.log_icu_capacity = tensor_log(.259e-3)  # https://alhill.shinyapps.io/COVID19seir/
+    # _params.log_icu_capacity = tensor_log(.259e-3)  # https://alhill.shinyapps.io/COVID19seir/
     _params.u = _sample_from_confidence_interval(0.0, 0.0, 1.0)
 
     return _params

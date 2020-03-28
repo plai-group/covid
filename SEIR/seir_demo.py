@@ -35,8 +35,8 @@ experiment_do_single_sim =  False
 experiment_single_rollout = False
 experiment_icu_capacity =   False
 experiment_nmc_example =    False
-experiment_stoch_vs_det =   True
-experiment_mpc_example =    False
+experiment_stoch_vs_det =   False
+experiment_mpc_example =    True
 
 # Define base parameters of SEIR model.
 log_alpha = torch.log(torch.tensor((1 / 5.1, )))
@@ -60,7 +60,7 @@ untreated_extra_mortality_rate = sum(rate*prop for rate, prop in
 # Make sure we are controlling the right things.
 controlled_parameters = ['u']  # We can select u.
 uncontrolled_parameters = ['log_kappa', 'log_a', 'log_p1', 'log_p2', 'log_p1',
-                           'log_p2', 'log_g1', 'log_g2', 'log_g3', 'log_icu_capacity']
+                           'log_p2', 'log_g1', 'log_g2', 'log_g3']#, 'log_icu_capacity']
 
 # Define the simulation properties.
 T = 1000
@@ -68,8 +68,8 @@ dt = 1.0
 initial_population = 10000
 
 # Define inference settings.
-N_simulation = 1000
-N_parameter_sweep = 450
+N_simulation = 100
+N_parameter_sweep = 150
 
 plotting._sims_to_plot = np.random.randint(0, N_simulation, plotting.n_sims_to_plot)
 
@@ -77,8 +77,8 @@ plotting._sims_to_plot = np.random.randint(0, N_simulation, plotting.n_sims_to_p
 t = torch.linspace(0, T, int(T / dt) + 1)
 
 params = seir.sample_prior_parameters(SimpleNamespace(), _n=1, get_map=True)
-params.policy = {'infection_threshold': 0.0145,
-                 'icu_capacity': torch.tensor(.259e-3)}
+params.policy = {'infection_threshold': 0.0145,}
+                 #'icu_capacity': torch.tensor(.259e-3)}
 params.controlled_parameters = controlled_parameters
 params.uncontrolled_parameters = uncontrolled_parameters
 params.dt = dt
@@ -137,7 +137,7 @@ if __name__ == '__main__':
         # Do single plot with controls. -----------------------------
         initial_state = seir.sample_x0(1, initial_population)
         params_controlled = seir.sample_prior_parameters(params, 1, get_map=True)
-        params_controlled.u = 0.38
+        params_controlled.u = 0.37
 
         results_deterministic = seir.simulate_seir(initial_state, params_controlled, dt, T, seir.sample_identity_parameters)
         valid_simulations = valid_simulation(results_deterministic, params)
@@ -152,19 +152,19 @@ if __name__ == '__main__':
             print('\nICU capacity sweep')
 
             capacities = {
-                'zero': params_controlled.log_icu_capacity - float('inf'),
-                'nominal': params_controlled.log_icu_capacity,
-                'infinite': params_controlled.log_icu_capacity + float('inf'),
+                'zero': 0.0,  # params_controlled.log_icu_capacity - float('inf'),
+                'nominal': 0.0,  # params_controlled.log_icu_capacity,
+                'infinite': 0.0,  # params_controlled.log_icu_capacity + float('inf'),
             }
 
-            fig = plt.figure(figsize=plotting.fig_size_short)
+            fig = plt.figure(figsize=(6, 2))
             axe = plt.gca()
             for _i, capacity_name in enumerate(['zero', 'nominal', 'infinite']):
 
                 initial_state = seir.sample_x0(N_simulation, initial_population)
                 params_controlled = seir.sample_prior_parameters(params, N_simulation, get_map=True)
                 params_controlled.u = torch.linspace(0, 1, N_simulation)
-                params_controlled.log_icu_capacity = capacities[capacity_name]
+                # params_controlled.log_icu_capacity = capacities[capacity_name]
                 results_deterministic = seir.simulate_seir(initial_state, params_controlled, dt,
                                                            T, seir.sample_identity_parameters)
 
@@ -174,7 +174,7 @@ if __name__ == '__main__':
                                                           plotting.mcd['blue'],
                                                           plotting.mcd['green']][_i])
 
-            plt.savefig('./png/infected_deaths.png')
+            plt.savefig('./pdf/infected_deaths.pdf')
             plt.close('all')
 
 
@@ -341,7 +341,7 @@ if __name__ == '__main__':
 
         # Do deterministic 'sweep' and get the results in.
         current_state = seir.sample_x0(3, initial_population)
-        u_sweep = torch.tensor([0.300, 0.365, 0.450])
+        u_sweep = torch.tensor([0.300, 0.37, 0.450])
         controlled_parameter_values = dc({'u': u_sweep})
         controlled_params = seir.sample_prior_parameters(params, _n=N_parameter_sweep, get_map=True)
         controlled_params.u = u_sweep
@@ -358,7 +358,7 @@ if __name__ == '__main__':
 
         # Now run some sweeps using the estimated values.
         current_state = seir.sample_x0(N_simulation, initial_population)
-        u_sweep = torch.tensor([0.365])
+        u_sweep = torch.tensor([0.37])
         controlled_parameter_values = [dc({'u': _u}) for _u in u_sweep]
         controlled_params = dc(params)
         controlled_params.u = u_sweep

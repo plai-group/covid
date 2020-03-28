@@ -152,7 +152,7 @@ def make_trajectory_plot(_axe, _params, _results_visited, _results_noise, _valid
         _axe.fill_between(_t[_t_idx_current - _s_idx_current:], _lq, _uq, color=mcd['red'], alpha=0.2)
         _axe.plot(_t[_t_idx_current - _s_idx_current:], _m, color=mcd['red'], zorder=-100)
 
-        _ylim = (0.0, 0.025)
+        _ylim = (0.0, 0.025)  # TODO - lower limit for mpc.
 
     _axe.plot(_t.numpy(), (torch.ones_like(_t) * _params.policy['infection_threshold']).numpy(), 'k--', label='$C$', zorder=10000+1)
     # FI.
