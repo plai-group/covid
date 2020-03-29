@@ -31,7 +31,7 @@ muted_colours_dict = {'blue':   muted_colours_list[0],
                       'eggsh':  muted_colours_list[9]}
 mcd = muted_colours_dict
 
-# Real misc shit.
+# Real misc stuff.
 fig_size_wide = (12, 3)
 fig_size_small = (4, 4)
 fig_size_short = (4, 2)
@@ -39,6 +39,11 @@ dpi=100
 
 
 def get_statistics(_results):
+    """
+    Work out the fractions of the population in each compartment..
+    :param _results:
+    :return:
+    """
     _populace = np.sum(_results[:, :, :-1].numpy(), axis=2)
     _s_n = _results.numpy()[:, :, 0]
     _e_n = _results.numpy()[:, :, 1]
@@ -71,7 +76,7 @@ def get_alphas(_valid_simulations, _plot_valid=None):
 def make_trajectory_plot(_axe, _params, _results_visited, _results_noise, _valid_simulations, _t,
                          _plot_valid=False, _ylim=None, _shade=False):
     """
-    Plot the slightly crazy trajectory diagram
+    Plot the slightly crazy trajectory diagram.
     :param axe:
     :return:_
     """
@@ -98,9 +103,6 @@ def make_trajectory_plot(_axe, _params, _results_visited, _results_noise, _valid
         _ls = '-'
         _ds = '-'
 
-    # _s_idx_current = np.round(((((__t - 1) * _params.dt) + 2) / _params.dt) + 1).astype(np.int)
-    # _t_idx_current = np.round(((((__t - 1) * _params.dt) + 1) / _params.dt) + 1).astype(np.int)  # Different to above as we need to prune off the first.
-
     _axe.cla()
     if _t_idx_current > 0:
         try:
@@ -113,7 +115,6 @@ def make_trajectory_plot(_axe, _params, _results_visited, _results_noise, _valid
         except:
             pass
 
-    # if _t_idx_current < (torch.max(torch.round(_t / _params.dt)) - 1):
     _p_n, _s_n, _e_n, _i_n, _r_n = get_statistics(_results_noise)
     if not _shade:
         [_axe.plot(_t[_t_idx_current - _s_idx_current:] - 1, _s_n[:, _i], c=mcd['green'],     linestyle=_ls, alpha=np.min((_alphas[_i], 1.0)), label='$S_t$') for _i in __sims_to_plot]  # np.int(np.round(__t / _params.dt))
@@ -151,8 +152,6 @@ def make_trajectory_plot(_axe, _params, _results_visited, _results_noise, _valid
         _lq = np.quantile(_i_n, 0.1, axis=1)
         _axe.fill_between(_t[_t_idx_current - _s_idx_current:], _lq, _uq, color=mcd['red'], alpha=0.2)
         _axe.plot(_t[_t_idx_current - _s_idx_current:], _m, color=mcd['red'], zorder=-100)
-
-        _ylim = (0.0, 0.025)  # TODO - lower limit for mpc.
 
     _axe.plot(_t.numpy(), (torch.ones_like(_t) * _params.policy['infection_threshold']).numpy(), 'k--', label='$C$', zorder=10000+1)
     # FI.
@@ -240,19 +239,11 @@ def make_parameter_plot(_axe, _new_parameters, _valid_simulations):
     plt.xticks((0, 0.2, 0.4, 0.6, 0.8, 1.0), _xt)
     plt.pause(0.1)
 
-    # _axe.xaxis.set_major_formatter(mtick.PercentFormatter())
-
-    p = 0
-
 
 def make_policy_plot(_axe, _params, _alpha, _beta, _valid_simulations, _typical_u, _typical_alpha, _typical_beta):
-
     _u = _params.u
     _color_list = [muted_colours_dict['red'], muted_colours_dict['green']]
     [_axe.plot(_alpha, _beta[_i], c=_color_list[_valid_simulations[_i].type(torch.int)]) for _i in range(len(_valid_simulations))]
-    # _axe.plot(_typical_alpha, _typical_beta, 'k', alpha=0.8)
-    # _axe.scatter((1.0, ), (1.0, ), c='k', marker='x')
-    # _axe.axis('equal')
     _axe.set_xlim(left=0.0, right=1.0)
     _axe.set_ylim(bottom=0.0, top=1.0)
     _axe.grid(True)
@@ -274,14 +265,12 @@ def do_family_of_plots(noised_parameters, results_noise, valid_simulations, t, _
     except: pass
     try: os.mkdir('./pdf/{}/policy'.format(_prepend))
     except: pass
-    #
 
     plt.figure(figsize=fig_size_short)
     make_trajectory_plot(plt.gca(), noised_parameters, _visited_states, results_noise, valid_simulations, t, _plot_valid=None, _ylim=_zoom_lims, _shade=_shade)
     if _title is not None:
         plt.title(_title)
     plt.tight_layout()
-    # plt.savefig('./png/{}/{}trajectory_zoom_all{}.png'.format(_prepend, _prepend, _num), dpi=dpi)
     plt.savefig('./pdf/{}/zoom/{}trajectory_zoom_all{}.pdf'.format(_prepend, _prepend, _num))
 
     # We dont want to plot valid or params if we have just done a round of control.
@@ -293,7 +282,6 @@ def do_family_of_plots(noised_parameters, results_noise, valid_simulations, t, _
         if _title is not None:
             plt.title(_title)
         plt.tight_layout()
-        # plt.savefig('./png/{}/{}trajectory_full_all{}.png'.format(_prepend, _prepend, _num), dpi=dpi)
         plt.savefig('./pdf/{}/full/{}trajectory_full_all{}.pdf'.format(_prepend, _prepend, _num))
 
         plt.figure(figsize=fig_size_short)
@@ -301,7 +289,6 @@ def do_family_of_plots(noised_parameters, results_noise, valid_simulations, t, _
         if _title is not None:
             plt.title(_title)
         plt.tight_layout()
-        # plt.savefig('./png/{}/{}trajectory_full_valid{}.png'.format(_prepend, _prepend, _num), dpi=dpi)
         plt.savefig('./pdf/{}/full/{}trajectory_full_valid{}.pdf'.format(_prepend, _prepend, _num))
 
         plt.figure(figsize=fig_size_short)
@@ -309,7 +296,6 @@ def do_family_of_plots(noised_parameters, results_noise, valid_simulations, t, _
         if _title is not None:
             plt.title(_title)
         plt.tight_layout()
-        # plt.savefig('./png/{}/{}trajectory_zoom_valid{}.png'.format(_prepend, _prepend, _num), dpi=dpi)
         plt.savefig('./pdf/{}/zoom/{}trajectory_zoom_valid{}.pdf'.format(_prepend, _prepend, _num))
 
         plt.figure(figsize=fig_size_short)
@@ -317,7 +303,6 @@ def do_family_of_plots(noised_parameters, results_noise, valid_simulations, t, _
         if _title is not None:
             plt.title(_title)
         plt.tight_layout()
-        # plt.savefig('./png/{}/{}parameters{}.png'.format(_prepend, _prepend, _num), dpi=dpi)
         plt.savefig('./pdf/{}/policy/{}parameters{}.pdf'.format(_prepend, _prepend, _num))
 
         plt.figure(figsize=fig_size_small)
@@ -325,7 +310,6 @@ def do_family_of_plots(noised_parameters, results_noise, valid_simulations, t, _
         if _title is not None:
             plt.title(_title)
         plt.tight_layout()
-        # plt.savefig('./png/{}/{}policy{}.png'.format(_prepend, _prepend, _num), dpi=dpi)
         plt.savefig('./pdf/{}/policy/{}policy{}.pdf'.format(_prepend, _prepend, _num))
 
     plt.pause(0.1)
@@ -335,11 +319,6 @@ def nmc_plot(outer_samples, _threshold, _prepend='nmc_', _append=''):
     nmc_fig = plt.figure(10, fig_size_short)
     nmc_axe = plt.gca()
     nmc_axe.plot((0, 1), (0.9, 0.9), 'k:')
-    # plt.ylim((-0.05, 1.05))
-    # plt.xlim((0.0, 1.0))
-    # plt.grid(True)
-    # plt.ylabel('$p( Y=1 | u)$')
-    # plt.xlabel('$u$')
 
     _c_l = np.asarray([muted_colours_dict['red'], muted_colours_dict['green']])
     _c = _c_l[(np.asarray(outer_samples['p_valid']) > _threshold).astype(np.int)]
@@ -361,7 +340,6 @@ def nmc_plot(outer_samples, _threshold, _prepend='nmc_', _append=''):
     plt.tight_layout()
     plt.savefig('./pdf/{}/policy/{}nmc_parameters_{}.pdf'.format(_prepend, _prepend, _append))
     plt.pause(0.1)
-    # plt.close(10)
 
 
 def det_plot(results_deterministic, valid_simulations, params, t, _append='', _legend=False):
@@ -402,33 +380,3 @@ def det_plot(results_deterministic, valid_simulations, params, t, _append='', _l
 
     # Restore the global value.
     _sims_to_plot = dc(_sims_to_plot_store)
-
-
-def do_controlled_plot(outer_samples, first_valid_simulation, params, N_simulation, current_state, t, _t,
-                       valid_simulation, threshold, img_frame, visited_states):
-    # Run simulation with the chosen control.
-    controlled_parameter_values = dc({'u': torch.tensor([outer_samples['u'][first_valid_simulation]])})
-    controlled_params = dc(params)
-    controlled_params.u = controlled_parameter_values['u'][:] * torch.ones((N_simulation,))
-
-    p_valid, results_noise, valid_simulations = \
-        seir.nmc_estimate(current_state, params, _t * params.dt, controlled_parameter_values, valid_simulation)
-
-    # TODO - check this code/
-    tag = ''
-    if torch.any(p_valid < threshold):
-        if torch.any(torch.logical_not(valid_simulations)):
-            print()
-            print(warnings.warn('WARNING - CONSTRAINT VOLATION.'))
-            print('img_frame:\t ' + str(img_frame))
-            print('_t:\t\t\t ' + str(_t))
-            print('p_valid:\t\t ' + str(p_valid))
-            print('threshold:\t ' + str(threshold))
-            print('valid_simulations: \n' + str(valid_simulations))
-            # raise RuntimeError  # AAAHHHHH
-            tag = '_WARNING'
-            print()
-
-    do_family_of_plots(controlled_params, results_noise, torch.ones((N_simulation,)), t,
-                                _visited_states=visited_states,
-                                _prepend='5_mpc_', _title='', _num='_controlled_{:05d}{}'.format(img_frame, tag))

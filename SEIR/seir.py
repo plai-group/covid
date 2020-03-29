@@ -9,25 +9,6 @@ float_type = torch.float64
 DYNAMIC_NORMALIZATION = False
 
 
-# def simple_death_rate(_state, _params):
-
-#     return _params.log_kappa.exp()
-
-
-# def finite_capacity_death_rate(_state, _params):
-
-#     n_infected = _state[:, 3:6].sum(dim=1)
-
-#     max_treatable = _params.log_max_treatable.exp()
-#     standard_rate = _params.log_kappa.exp()
-
-#     higher_rate = standard_rate + _params.log_untreated_extra_kappa.exp()
-#     is_too_many = (n_infected > max_treatable).type(_state.dtype)
-#     proportion_treated = max_treatable/torch.max(n_infected, max_treatable)
-#     too_many_rate = proportion_treated*standard_rate + (1-proportion_treated)*higher_rate
-#     return is_too_many * too_many_rate + (1 - is_too_many) * standard_rate
-
-
 def get_diff(_state, _params):
 
     a = torch.exp(_params.log_a)
@@ -201,6 +182,7 @@ def sample_unknown_parameters(_params, _n=None):
 def sample_perturb_parameters(_params, _n=None):
     """
     AW - sample_perturb_parameters - sample a small perturbation to all parameters.
+    Note - this code is not really used right now.
     :param _params:
     :return:
     """
@@ -231,6 +213,11 @@ def sample_identity_parameters(_params, _n=None):
 
 
 def policy_tradeoff(_params):
+    """
+    AW - calculate the lines for the policy tradeoff plot.
+    :param _params:
+    :return:
+    """
     # Do u / R0 plotting.
     n_sweep = 1001
     u = np.square(1 - _params.u)  # 1-u because u is a _reduction_.
@@ -275,6 +262,16 @@ def nmc_estimate(_current_state, _params, _time_now, _controlled_parameters, _va
 
 
 def parallel_nmc_estimate(_pool, _current_state, _params, _time_now, _controlled_parameter_values, _valid_simulation):
+    """
+    Call the NMC estimate in parallel. All other arguments are the same as nmc_estimate.
+    :param _pool: Multiproc pool.
+    :param _current_state:
+    :param _params:
+    :param _time_now:
+    :param _controlled_parameter_values:
+    :param _valid_simulation:
+    :return:
+    """
     # Create args dictionary.
     _args = [(_current_state, _params, _time_now, _c, _valid_simulation) for _c in _controlled_parameter_values]
 
