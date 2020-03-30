@@ -9,25 +9,6 @@ float_type = torch.float64
 DYNAMIC_NORMALIZATION = False
 
 
-# def simple_death_rate(_state, _params):
-
-#     return _params.log_kappa.exp()
-
-
-# def finite_capacity_death_rate(_state, _params):
-
-#     n_infected = _state[:, 3:6].sum(dim=1)
-
-#     max_treatable = _params.log_max_treatable.exp()
-#     standard_rate = _params.log_kappa.exp()
-
-#     higher_rate = standard_rate + _params.log_untreated_extra_kappa.exp()
-#     is_too_many = (n_infected > max_treatable).type(_state.dtype)
-#     proportion_treated = max_treatable/torch.max(n_infected, max_treatable)
-#     too_many_rate = proportion_treated*standard_rate + (1-proportion_treated)*higher_rate
-#     return is_too_many * too_many_rate + (1 - is_too_many) * standard_rate
-
-
 def get_diff(_state, _params):
 
     a = torch.exp(_params.log_a)
@@ -40,12 +21,12 @@ def get_diff(_state, _params):
     p1 = torch.exp(_params.log_p1)
     p2 = torch.exp(_params.log_p2)
     kappa = torch.exp(_params.log_kappa)
-    icu_capacity = torch.exp(_params.log_icu_capacity)
+    # icu_capacity = torch.exp(_params.log_icu_capacity)
     u = _params.u
 
     _s, _e, _i1, _i2, _i3, _r, _d = tuple(_state[:, i] for i in range(_state.shape[1]))
-    _i3_icu = torch.min(_i3, icu_capacity)
-    _i3_nicu = _i3 - _i3_icu
+    # _i3_icu = torch.min(_i3, icu_capacity)
+    # _i3_nicu = _i3 - _i3_icu
     _n = _state.sum(dim=1)
 
     s_to_e = (1-u) * (b1*_i1 + b2*_i2 + b3*_i3)/_n*_s
@@ -54,8 +35,8 @@ def get_diff(_state, _params):
     i1_to_i2 = p1*_i1
     i2_to_r = g2*_i2
     i2_to_i3 = p2*_i2
-    i3_to_r = g3*_i3_icu
-    i3_to_d = kappa*_i3_icu + _i3_nicu/_params.dt  # so that a step of dt kills all excess ICU patients
+    i3_to_r = g3*_i3  # _i3_icu
+    i3_to_d = kappa * _i3  # kappa*_i3_icu + _i3_nicu/_params.dt  # so that a step of dt kills all excess ICU patients
 
     _d_s = -s_to_e
     _d_e = s_to_e - e_to_i1
@@ -174,7 +155,7 @@ def sample_prior_parameters(_params, _n=None, get_map=False):
     _params.log_p1 = tensor_log(p1)
     _params.log_p2 = tensor_log(p2)
     _params.log_kappa = tensor_log(kappa)
-    _params.log_icu_capacity = tensor_log(.259e-3)  # https://alhill.shinyapps.io/COVID19seir/
+    # _params.log_icu_capacity = tensor_log(.259e-3)  # https://alhill.shinyapps.io/COVID19seir/
     _params.u = _sample_from_confidence_interval(0.0, 0.0, 1.0)
 
     return _params
@@ -201,6 +182,7 @@ def sample_unknown_parameters(_params, _n=None):
 def sample_perturb_parameters(_params, _n=None):
     """
     AW - sample_perturb_parameters - sample a small perturbation to all parameters.
+    Note - this code is not really used right now.
     :param _params:
     :return:
     """
@@ -231,6 +213,11 @@ def sample_identity_parameters(_params, _n=None):
 
 
 def policy_tradeoff(_params):
+    """
+    AW - calculate the lines for the policy tradeoff plot.
+    :param _params:
+    :return:
+    """
     # Do u / R0 plotting.
     n_sweep = 1001
     u = np.square(1 - _params.u)  # 1-u because u is a _reduction_.
@@ -275,6 +262,16 @@ def nmc_estimate(_current_state, _params, _time_now, _controlled_parameters, _va
 
 
 def parallel_nmc_estimate(_pool, _current_state, _params, _time_now, _controlled_parameter_values, _valid_simulation):
+    """
+    Call the NMC estimate in parallel. All other arguments are the same as nmc_estimate.
+    :param _pool: Multiproc pool.
+    :param _current_state:
+    :param _params:
+    :param _time_now:
+    :param _controlled_parameter_values:
+    :param _valid_simulation:
+    :return:
+    """
     # Create args dictionary.
     _args = [(_current_state, _params, _time_now, _c, _valid_simulation) for _c in _controlled_parameter_values]
 
