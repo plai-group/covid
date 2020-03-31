@@ -11,7 +11,7 @@ The experiments are just briefly highlighted here; please refer to the paper for
 ## [SEIR](SEIR/)
 SEIR (Susceptible-Exposed-Infectious-Recovered) models are a class of compartmental models in epidemiology. In such models, the population is subdivided into a set of compartments, representing the susceptible (uninfected), exposed (infected but not yet infectious), infectious (able to infect/expose others) and recovered (unable to be infected). All the individuals within a compartment is treated identically.
 
-Our experiment is on a COVID-19 adapted SEI<sup>3</sup>R variant where we look at what it will take to keep the maximum number of infectious people requiring hospitalization below a certain threshold.
+This experiment is uses a COVID-19-adapted SEI<sup>3</sup>R model. We explore what kind of controls will need to put in place and for how long in order will take to keep the maximum number of infectious people requiring hospitalization below a certain threshold.
 
 <p align="center">
     <img width="80%" src="./figures/seir_deterministic.png">
