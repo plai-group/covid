@@ -1,5 +1,5 @@
 # Planning as Inference in Epidemiological Dynamics Models
-Source code for the paper *Planning as Inference in Epidemiological Dynamics Models*.
+Source code for the paper [Planning as Inference in Epidemiological Dynamics Models](https://arxiv.org/abs/2003.13221).
 
 # TL;DR
 In this work we demonstrate how existing software tools can be used to automate parts of infectious disease-control policy-making via performing inference in existing epidemiological dynamics models.  The kind of inference tasks undertaken include computing, for planning purposes, the  posterior distribution over putatively controllable, via direct policy-making choices, simulation model parameters that give rise to acceptable disease progression outcomes.  Neither the full capabilities of such inference automation software tools nor their utility for planning is widely disseminated at the current time.  Timely gains in understanding about these tools and how they can be used may lead to more fine-grained and less economically damaging policy prescriptions, particularly during the current COVID-19 pandemic.
@@ -50,13 +50,18 @@ We couple FRED with [pyprob](https://github.com/pyprob/pyprob), a probabilistic 
 </p>
 
 ## Publication
+
+Please make use of this code and when you do cite
+
 ### Citation
 
-```@misc{wood2020planning,
+```
+@misc{wood2020planning,
     title={Planning as Inference in Epidemiological Models},
     author={Frank Wood and Andrew Warrington and Saeid Naderiparizi and Christian Weilbach and Vaden Masrani and William Harvey and Adam Scibior and Boyan Beronov and Ali Nasseri},
     year={2020},
     eprint={2003.13221},
     archivePrefix={arXiv},
     primaryClass={q-bio.PE}
-}```
+}
+```
