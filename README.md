@@ -51,3 +51,12 @@ We couple FRED with [pyprob](https://github.com/pyprob/pyprob), a probabilistic 
 
 ## Publication
 ### Citation
+
+```@misc{wood2020planning,
+    title={Planning as Inference in Epidemiological Models},
+    author={Frank Wood and Andrew Warrington and Saeid Naderiparizi and Christian Weilbach and Vaden Masrani and William Harvey and Adam Scibior and Boyan Beronov and Ali Nasseri},
+    year={2020},
+    eprint={2003.13221},
+    archivePrefix={arXiv},
+    primaryClass={q-bio.PE}
+}```
