@@ -1,4 +1,4 @@
-COVID-19 SEI^3R and FRED model and control softwrae
+COVID-19 SEI^3R and FRED model and control software
 
 Copyright 2020 The University of British Columbia.
 
