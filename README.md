@@ -1,18 +1,17 @@
 # Planning as Inference in Epidemiological Dynamics Models
-Source code for the paper *Planning as Inference in Epidemiological Dynamics Models*.
+Source code for the paper [Planning as Inference in Epidemiological Dynamics Models](https://arxiv.org/abs/2003.13221).
 
 # TL;DR
 In this work we demonstrate how existing software tools can be used to automate parts of infectious disease-control policy-making via performing inference in existing epidemiological dynamics models.  The kind of inference tasks undertaken include computing, for planning purposes, the  posterior distribution over putatively controllable, via direct policy-making choices, simulation model parameters that give rise to acceptable disease progression outcomes.  Neither the full capabilities of such inference automation software tools nor their utility for planning is widely disseminated at the current time.  Timely gains in understanding about these tools and how they can be used may lead to more fine-grained and less economically damaging policy prescriptions, particularly during the current COVID-19 pandemic.
 
-<strong>Policy goal</strong>: we aim to maintain the maximal infectious population below a certain number computed according to the required number of hospital beds per capita.
 
 # Experiments
-The experiments and running them are explained in detail in their own readme. They are just briefly described here.
+The experiments are just briefly highlighted here; please refer to the paper for detail.  How to run them is explained in their own subdirectory README's (links below).
 
 ## [SEIR](SEIR/)
 SEIR (Susceptible-Exposed-Infectious-Recovered) models are a class of compartmental models in epidemiology. In such models, the population is subdivided into a set of compartments, representing the susceptible (uninfected), exposed (infected but not yet infectious), infectious (able to infect/expose others) and recovered (unable to be infected). All the individuals within a compartment is treated identically.
 
-Our experiment is on a SEI<sup>3</sup>R variant where we infer the parameters of this model conditioned on the policy goal.
+This experiment is uses a COVID-19-adapted SEI<sup>3</sup>R model. We explore what kind of controls will need to put in place and for how long in order to keep the maximum number of infectious people requiring hospitalization below a certain threshold.
 
 <p align="center">
     <img width="80%" src="./figures/seir_deterministic.png">
@@ -26,6 +25,8 @@ Our experiment is on a SEI<sup>3</sup>R variant where we infer the parameters of
     <br>
     <sup>Stochastic SEI<sup>3</sup>R in a model predictive control setting. At each step, our method solves for the minimum required control such that the constraint is satisfied. We plot the 90% confidence interval over trajectories conditioned on this control value. We then step through the system, randomly sampling continuations, and adapting the controls used such that the constraint is always met. We uncover that the amount of control required reduces over time as herd immunity comes into effect. (red) Infected, (blue) Exposed (purple) Recovered.</sup>
 </p>
+
+The second experiment looks at how to use an agent-based model to answer a similar question.  Theoretically agent-based models can answer this kind of question with greater fidelity because they have direct access to fine-grained controls.  Unfortunately this model is currently only available in a form adapted to _influenza_, but, methodologically it still serves as a fine example of what could be done.
 
 ## [FRED](FRED/)
 [FRED](https://fred.publichealth.pitt.edu/) (A Framework for Reconstructing Epidemiological Dynamics) is an open source agent-based simulator for epidemiological dynamics. FRED captures demographic and geographic heterogeneities of the population by modelling every individual in a region, including realistic households, workplaces and social networks. Using census-based models available for every state and county in the US and selected international locations, FRED simulates interactions within the population in discrete time steps of one day.
@@ -50,4 +51,18 @@ We couple FRED with [pyprob](https://github.com/pyprob/pyprob), a probabilistic 
 </p>
 
 ## Publication
+
+Please make use of this code and when you do cite
+
 ### Citation
+
+```
+@misc{wood2020planning,
+    title={Planning as Inference in Epidemiological Models},
+    author={Frank Wood and Andrew Warrington and Saeid Naderiparizi and Christian Weilbach and Vaden Masrani and William Harvey and Adam Scibior and Boyan Beronov and Ali Nasseri},
+    year={2020},
+    eprint={2003.13221},
+    archivePrefix={arXiv},
+    primaryClass={q-bio.PE}
+}
+```
