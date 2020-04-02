@@ -36,11 +36,11 @@ except:
 # CONFIGURE SIMULATION ---------------------------------------------------------------------------------------------
 
 # Experiments to run.
-experiment_do_single_sim =  False
-experiment_single_rollout = False
+experiment_do_single_sim =  True
+experiment_single_rollout = True
 # experiment_icu_capacity =   False
-experiment_nmc_example =    False
-experiment_stoch_vs_det =   False
+experiment_nmc_example =    True
+experiment_stoch_vs_det =   True
 experiment_mpc_example =    True
 
 # Make sure we are controlling the right things.
@@ -49,7 +49,7 @@ uncontrolled_parameters = ['log_kappa', 'log_a', 'log_p1', 'log_p2', 'log_p1',
                            'log_p2', 'log_g1', 'log_g2', 'log_g3']  # , 'log_icu_capacity']
 
 # Define the simulation properties.
-T = 1000
+T = 600
 dt = 1.0
 initial_population = 10000
 
@@ -315,7 +315,7 @@ if __name__ == '__main__':
         for _val, _tag in zip((0.37, 0.5, 0.6), ('under', 'borderline', 'safe')):
             # Now run some sweeps using the estimated values.
             current_state = seir.sample_x0(N_simulation, initial_population)
-            u_sweep = torch.tensor([0.37])
+            u_sweep = torch.tensor([_val])
             controlled_parameter_values = [dc({'u': _u}) for _u in u_sweep]
             controlled_params = dc(params)
             controlled_params.u = u_sweep
