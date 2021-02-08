@@ -16,7 +16,7 @@ singularity shell <path-to-covid.sif>
 To do a quick test on your Singularity image, you can run [`FRED/tests/pyprob_cpp`](this test). To do so, run the following:
 ```
 singularity shell -B <path-to-FRED/>:/workdir <path-to-covid.sif>
-cd /workdir/tests/pyprob/cpp
+cd /workdir/tests/pyprob_cpp
 cmake . && cmake --build .
 python main.py
 ```
