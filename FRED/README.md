@@ -3,22 +3,22 @@
 ## Getting started
 ### Singularity images
 We provide a singularity image that can be used for running the experiments. It has all the dependencies (pyprob, pyprob_cpp, PPX, and FRED simulator) installed. To create the singularity image from the recipe files, clone this repo and `cd` to `FRED/singularity`. Then,
-```
+```bash
 sudo singularity build covid_base.sif covid_base.def
 sudo singularity build covid.sif covid.def
 ```
 
 Once the images are successfully created, start up the image:
-```
+```bash
 singularity shell <path-to-covid.sif>
 ```
 
 To do a quick test on your Singularity image, you can run [`FRED/tests/pyprob_cpp`](this test). To do so, run the following:
-```
+```bash
 singularity shell -B <path-to-FRED/>:/workdir <path-to-covid.sif>
 cd /workdir/tests/pyprob_cpp
 cmake . && cmake --build .
-python main.py
+python inference.py
 ```
 It runs a test on a Gaussian with unknown mean model is in C++. It connects the C++ model to pyprob, samples from its prior and prints the empirical mean and standard deviation of the samples along with the analytically computed values for them.
 

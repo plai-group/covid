@@ -4,8 +4,8 @@ from pyprob import RemoteModel
 import numpy as np
 import torch
 
-model_address = 'ipc://@gum'
-model_executable = './simulator'
+model_address = 'ipc://@gum'     # A shared address for inter-process communication between the simulator and pyprob.
+model_executable = './simulator' # Path to the simulator's executable file.
 
 if __name__ == '__main__':
     obs = 2 # observed value from the model
