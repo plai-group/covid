@@ -14,7 +14,7 @@ import io
 from colormap import hex2rgb
 from types import SimpleNamespace
 from sacred import Experiment
-from plot_threshold import plot
+#from plot_threshold import plot
 from matplotlib.colors import ListedColormap
 
 ex = Experiment()
@@ -210,12 +210,6 @@ def plot_hist(dset, file_path, color, opacity=True, label=None, title=None):
             x_vals = dset[:, j]
             y_vals = dset[:, i]
             ax = plt.subplot(num_params, num_params, 1 + (i-1)*num_params + j)
-            ax.set_xticks([])
-            if j == 0:
-                ax.set_ylabel(plot_labels[params_order[i]], labelpad=40, rotation=-30)
-                ax.set_yticks(plot_ticks[params_order[i]])
-            else:
-                ax.set_yticks([])
 
             xbins = get_bins(x_vals, discrete='duration' in params_order[j])
             ybins = get_bins(y_vals, discrete='duration' in params_order[i])
@@ -223,6 +217,12 @@ def plot_hist(dset, file_path, color, opacity=True, label=None, title=None):
             counts, xedges, yedges, im = ax.hist2d(x_vals, y_vals, bins=[xbins, ybins],
                                                    cmap=get_gradient_colormap(muted_colours_dict[color]),
                                                    vmax=vmax_unit * bin_size, vmin=vmin_unit * bin_size)
+            ax.set_xticks([])
+            if j == 0:
+                ax.set_ylabel(plot_labels[params_order[i]], labelpad=40, rotation=-30)
+                ax.set_yticks(plot_ticks[params_order[i]])
+            else:
+                ax.set_yticks([])
     
     # Compute ymax and ymin (for the last row histograms)
     i = num_params
@@ -285,19 +285,26 @@ def run(args):
             else:
                 dset = np.concatenate([dset, param_data_from_traces(str(trace_file))])
     else:
-        simulation_dirs = list(args.exp_dir.glob('sim*.zip'))
-        full_dset = None
-        for simulation_dir in tqdm(simulation_dirs):
-            print()
-            print(f'Loading {simulation_dir}')
-            if full_dset is None:
-                full_dset = param_data_from_simulation_files(str(simulation_dir))
-            else:
-                full_dset = np.concatenate([full_dset, param_data_from_simulation_files(str(simulation_dir))])
-        print(f'The whole dataset has {len(full_dset)} samples')
-        full_dset[:, params_order.index('school_closure_ar_threshold')] /= 100 # Convert school closure from percentage to a ratio in [0-1]
-        full_dset = full_dset[:1000000] # Filter out the samples beyond 1M (if any)
+        dset_filename = args.exp_dir.parent / f"{args.exp_dir.name}_dset.npy"
+        if dset_filename.exists():
+            full_dset = np.load(dset_filename)
+        else:
+            simulation_dirs = list(args.exp_dir.glob('sim*.zip'))
+            full_dset = None
+            for simulation_dir in tqdm(simulation_dirs):
+                # print()
+                # print(f'Loading {simulation_dir}')
+                if full_dset is None:
+                    full_dset = param_data_from_simulation_files(str(simulation_dir))
+                else:
+                    full_dset = np.concatenate([full_dset, param_data_from_simulation_files(str(simulation_dir))])
+            print(f'The whole dataset has {len(full_dset)} samples')
+            full_dset[:, params_order.index('school_closure_ar_threshold')] /= 100 # Convert school closure from percentage to a ratio in [0-1]
+            full_dset = full_dset[:1000000] # Filter out the samples beyond 1M (if any)
+            np.save(dset_filename, full_dset)
+            print(f"Extracted dataset saved at {dset_filename}")
     optimality = full_dset[:, -1]
+    import pdb; pdb.set_trace()
 
     success_rate = f'{np.sum(optimality == 1) / len(full_dset) * 100:.2f}% satisfied'
     print(success_rate)
