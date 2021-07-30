@@ -304,7 +304,6 @@ def run(args):
             np.save(dset_filename, full_dset)
             print(f"Extracted dataset saved at {dset_filename}")
     optimality = full_dset[:, -1]
-    import pdb; pdb.set_trace()
 
     success_rate = f'{np.sum(optimality == 1) / len(full_dset) * 100:.2f}% satisfied'
     print(success_rate)
@@ -312,9 +311,6 @@ def run(args):
               color='green', label='Effective policies', title=None)
     plot_hist(full_dset[optimality==0], file_path=str(args.out_dir / f'hist_{args.exp_dir.name}_failure.pdf'),
               color='red', label='Ineffective policies', title=None)
-
-    s = f'scatter_success_{args.exp_dir.name}.pdf'
-    print(f'saved to {s}')
 
 @ex.automain
 def command_line_entry(_run,_config, _seed):
